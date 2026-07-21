@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import logging
-import shutil
 import subprocess
 from pathlib import Path
 
 import soundfile as sf
+
+from airadio.paths import bundled_ffmpeg
 
 log = logging.getLogger(__name__)
 
@@ -16,11 +17,19 @@ def probe_duration_ms(path: Path) -> int:
 
 
 def ffmpeg_available() -> bool:
-    return shutil.which("ffmpeg") is not None
+    try:
+        bundled_ffmpeg()
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def ffmpeg_exe() -> str:
+    return bundled_ffmpeg()
 
 
 def loudnorm_ffmpeg(in_path: Path, out_path: Path, *, integrated: float = -16.0) -> Path:
-    """Normalize loudness if ffmpeg is present; otherwise copy."""
+    """Normalize loudness using venv-bundled ffmpeg; otherwise copy."""
     in_path = Path(in_path)
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -30,7 +39,7 @@ def loudnorm_ffmpeg(in_path: Path, out_path: Path, *, integrated: float = -16.0)
         return out_path
 
     cmd = [
-        "ffmpeg",
+        ffmpeg_exe(),
         "-y",
         "-i",
         str(in_path),

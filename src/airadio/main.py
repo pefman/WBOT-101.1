@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from airadio.config import load_station
 from airadio.health import check_health
 from airadio.orchestrator import Orchestrator
+from airadio.paths import ensure_bundled_espeak, static_web_dir
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,6 +28,9 @@ class ControlBody(BaseModel):
 
 
 def create_app() -> FastAPI:
+    # Wire bundled espeak before any TTS import path can run
+    ensure_bundled_espeak()
+
     station, genres = load_station()
     orchestrator = Orchestrator(station, genres)
 
@@ -36,7 +40,7 @@ def create_app() -> FastAPI:
         app.state.genres = genres
         app.state.orchestrator = orchestrator
         await orchestrator.start()
-        log.info("Station «%s» ready — %d genres", station.name, len(genres))
+        log.info("Station «%s» ready — %d genres (self-contained)", station.name, len(genres))
         yield
         await orchestrator.stop_workers()
 
@@ -65,6 +69,7 @@ def create_app() -> FastAPI:
             "song_duration_sec": s.song_duration_sec,
             "kokoro_voice": s.kokoro_voice,
             "ollama_model": s.ollama_model,
+            "self_contained": True,
         }
 
     @app.get("/api/now")
@@ -88,7 +93,7 @@ def create_app() -> FastAPI:
                         "health": health,
                     },
                 )
-            # Fire-and-forget buffer wait so HTTP doesn't block 10 minutes
+
             async def _play():
                 try:
                     await orch.play()
@@ -107,7 +112,6 @@ def create_app() -> FastAPI:
 
     @app.get("/stream/playlist.m3u8")
     async def stream_playlist():
-        """Alias for clients that prefer a stable playlist URL."""
         path = hls_dir / "index.m3u8"
         if path.is_file():
             return FileResponse(
@@ -129,13 +133,27 @@ def create_app() -> FastAPI:
             path, media_type="audio/wav", headers={"Cache-Control": "no-cache"}
         )
 
-    # Serve index.m3u8 + segXXX.ts from the same path prefix so relative URLs work.
-    # Mount last so explicit routes above still match first.
     app.mount(
         "/stream",
         StaticFiles(directory=str(hls_dir)),
         name="stream-static",
     )
+
+    # Self-contained UI (no npm / Vite required at runtime)
+    web = static_web_dir()
+    if web.is_dir():
+        app.mount("/static", StaticFiles(directory=str(web)), name="ui-static")
+
+        @app.get("/")
+        async def ui_index():
+            index = web / "index.html"
+            if not index.is_file():
+                raise HTTPException(404, "UI not packaged")
+            return FileResponse(index)
+
+        log.info("Serving self-contained UI from %s", web)
+    else:
+        log.warning("No static UI at %s", web)
 
     return app
 

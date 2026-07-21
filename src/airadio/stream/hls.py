@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
-import shutil
 import subprocess
 from pathlib import Path
+
+from airadio.paths import bundled_ffmpeg
 
 log = logging.getLogger(__name__)
 
@@ -15,24 +16,21 @@ def build_hls_from_wav(
     segment_time: int = 4,
 ) -> Path:
     """
-    Package a WAV into HLS (AAC .ts segments + index.m3u8).
+    Package a WAV into HLS using the **venv-bundled** ffmpeg (imageio-ffmpeg).
     Returns path to playlist.
     """
     wav_path = Path(wav_path)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     playlist = out_dir / "index.m3u8"
+    ff = bundled_ffmpeg()
 
-    if not shutil.which("ffmpeg"):
-        raise RuntimeError("ffmpeg required for HLS packaging")
-
-    # Clear previous segments in this dir
     for p in out_dir.glob("seg*.ts"):
         p.unlink(missing_ok=True)
     playlist.unlink(missing_ok=True)
 
     cmd = [
-        "ffmpeg",
+        ff,
         "-y",
         "-i",
         str(wav_path),
@@ -57,7 +55,7 @@ def build_hls_from_wav(
 
 
 def copy_wav_as_fallback(wav_path: Path, out_dir: Path) -> Path:
-    """If no ffmpeg, copy WAV for simple progressive playback."""
+    """If packaging fails, copy WAV for progressive playback."""
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     dest = out_dir / "current.wav"

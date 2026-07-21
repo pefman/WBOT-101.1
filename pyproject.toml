@@ -16,9 +16,11 @@ dependencies = [
   "pyyaml>=6.0",
   "soundfile>=0.12.0",
   "numpy>=1.26.0",
-  # Local TTS — installed into the app venv with the project
+  # Everything below installs into the project .venv only (no system packages)
   "kokoro>=0.7.0",
   "torch",
+  "imageio-ffmpeg>=0.5.0",   # ships ffmpeg binary inside the venv
+  "espeakng-loader>=0.2.0",  # ships libespeak-ng inside the venv for Kokoro
 ]
 
 [project.optional-dependencies]
@@ -32,6 +34,9 @@ airadio = "airadio.main:run"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+airadio = ["static/*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

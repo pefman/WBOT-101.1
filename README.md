@@ -1,107 +1,75 @@
-# Midnight Wire — Local AI Radio MVP
+# Midnight Wire — Self-contained local AI radio
 
-**100% offline** AI radio station: local LLM host banter, **Kokoro** TTS, and **ACE-Step 1.5** music, streamed to a simple web player (play/stop, volume, now playing).
+**No system packages.** Everything the radio app needs installs into the project **`.venv`**.
 
-```
-Talk (Ollama + Kokoro CPU)  →  Song (ACE-Step GPU)  →  Talk  →  Song  →  …
-         deep buffer ahead of the listener
-```
+| Piece | Where it lives |
+|-------|----------------|
+| App + FastAPI + orchestrator | `.venv` / `src/airadio` |
+| **Kokoro TTS** | `.venv` (pip) |
+| **espeak-ng** for phonemes | `.venv` via `espeakng-loader` (not apt) |
+| **ffmpeg** for HLS | `.venv` via `imageio-ffmpeg` (not apt) |
+| Web UI + hls.js | packaged in `src/airadio/static/` (no npm at runtime) |
+| Station / genres | `config/` |
+| Generated audio | `data/` (gitignored) |
 
-## Hardware
+**Outside the app (local services you already run):**
 
-| Component | Target |
-|-----------|--------|
-| GPU | **8–12GB** NVIDIA VRAM (ACE-Step Tier 4: 0.6B LM, INT8, CPU+DiT offload) |
-| TTS / LLM | Prefer **CPU** so the GPU stays free for music |
-| Disk | Plan **~25GB+** for ACE-Step checkpoints |
+- A **local LLM HTTP server** (OpenAI-compatible), e.g. llama.cpp `llama-server` or Ollama — configured in `config/station.yaml`
+- Optional **ACE-Step** checkout for real music (`ACESTEP_HOME`), or `ACESTEP_MOCK=1` for synthetic tracks
 
-## Stack
+The radio does **not** `apt install` ffmpeg, espeak, or anything else.
 
-| Role | Model / tool |
-|------|----------------|
-| Host brain | Ollama (e.g. `qwen2.5:7b`) |
-| TTS | **Kokoro-82M** (Apache 2.0) |
-| Music | **ACE-Step 1.5** (MIT) — not LeVo 2 (non-commercial) |
-| API | FastAPI |
-| UI | Vite + HLS.js |
-
-## Quick start
+## One-time setup (project only)
 
 ```bash
-# 1. Python env
 cd WBOT-101.1
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-pip install kokoro   # TTS; also: sudo apt install espeak-ng
 
-# 2. Ollama
-ollama serve   # if not already running
-ollama pull qwen2.5:7b
+# First-time model weights land under ~/.cache/huggingface (or set HF_HOME
+# inside the project if you want that cache here too).
 
-# 3. Music — pick one:
-#    A) Dev without ACE-Step:
-export ACESTEP_MOCK=1
-#    B) Real ACE-Step 1.5 (see upstream install):
-#       https://github.com/ace-step/ACE-Step-1.5
-#    export ACESTEP_HOME=/path/to/ACE-Step-1.5
-#    # or set acestep_cmd in config/station.yaml
-
-# 4. Optional checks
 bash scripts/setup_check.sh
-
-# 5. API
-uvicorn airadio.main:app --app-dir src --host 127.0.0.1 --port 8000
-
-# 6. Web UI (other terminal)
-cd web && npm install && npm run dev
-# open http://127.0.0.1:5173
 ```
 
-Press **Play**. The station **buffers live** (first talk + song) before going on air — with real ACE-Step this can take **minutes** on 8–12GB. Status text shows buffering progress.
+## Run (single process)
 
-## Customize
+```bash
+source .venv/bin/activate
+export KOKORO_DEVICE=cpu          # leave GPU free for your LLM / music
+export ACESTEP_MOCK=1             # or real ACE-Step via ACESTEP_HOME
 
-- **Station personality:** `config/station.yaml` (`name`, `host_name`, `system_prompt`, `kokoro_voice`, buffers, duration)
-- **Genres:** `config/genres/*.yaml` — 10 packs; random pick per song; restrict with `enabled_genres: [synthwave, lofi_chill]`
+# Point station.yaml at your local LLM (already set for llama-server if used)
+uvicorn airadio.main:app --app-dir src --host 127.0.0.1 --port 8000
+```
+
+Open **http://127.0.0.1:8000/** — UI is served by the app. No Vite/npm required.
+
+## Configure
+
+- `config/station.yaml` — name, host persona, LLM base URL + model id, voice, buffers  
+- `config/genres/*.yaml` — 10 genre packs; random pick per song  
 
 ## API
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/api/health` | ollama / kokoro / acestep / ffmpeg |
-| GET | `/api/config` | public station config |
-| GET | `/api/now` | state + current segment |
-| GET | `/api/queue` | upcoming segments |
+| GET | `/` | Web player |
+| GET | `/api/health` | Self-contained component check |
+| GET | `/api/now` | Now playing |
 | POST | `/api/control` | `{"action":"play"\|"stop"}` |
-| GET | `/stream/playlist.m3u8` | HLS playlist |
-| GET | `/stream/current.wav` | WAV fallback |
+| GET | `/stream/playlist.m3u8` | HLS |
 
 ## Tests
 
 ```bash
 source .venv/bin/activate
-export ACESTEP_MOCK=1
+export ACESTEP_MOCK=1 KOKORO_DEVICE=cpu
 pytest -v
 ```
 
-## Project layout
+## Design docs
 
-```
-config/           station + genre YAML
-src/airadio/      FastAPI, orchestrator, producers, clients
-web/              Vite player
-data/             generated segments + HLS (gitignored)
-docs/superpowers/ design + plan
-```
-
-## Notes
-
-- **Live-only deep buffer** — no seed music library; generation runs while you listen.
-- Only **one** ACE-Step job at a time (GPU lock).
-- Ollama calls use `num_gpu: 0` by default so music can own the VRAM.
-- Quality of open music models varies by prompt; genre packs are the main tuning knob.
-
-## License
-
-Application code: use as you like in this repo. Model licenses are separate (Kokoro Apache 2.0, ACE-Step MIT, Ollama model licenses vary).
+- `docs/superpowers/specs/2026-07-21-local-ai-radio-design.md`
+- `docs/superpowers/plans/2026-07-21-local-ai-radio.md`

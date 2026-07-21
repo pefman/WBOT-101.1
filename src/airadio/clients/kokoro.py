@@ -71,9 +71,14 @@ def _get_pipeline():
     if _pipeline is not None and _pipeline_voice_device == device:
         return _pipeline
 
+    # Use espeak-ng from the venv (espeakng-loader) — never system apt packages
+    from airadio.paths import ensure_bundled_espeak
+
+    ensure_bundled_espeak()
+
     from kokoro import KPipeline
 
-    log.info("Loading Kokoro pipeline on device=%s", device)
+    log.info("Loading Kokoro pipeline on device=%s (bundled espeak)", device)
     _pipeline = KPipeline(
         lang_code="a",
         repo_id="hexgrad/Kokoro-82M",

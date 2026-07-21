@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Radio</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="/static/hls.min.js"></script>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="header">
+        <div class="brand">
+          <span class="dot" id="live-dot"></span>
+          <h1 id="station-name">AI Radio</h1>
+        </div>
+        <p class="host" id="host-line">Local · self-contained · offline</p>
+      </header>
+
+      <section class="now">
+        <div class="badge" id="kind-badge">—</div>
+        <h2 id="title">Press Play to go on air</h2>
+        <p class="meta" id="meta-line"></p>
+        <p class="status" id="status-line">Stopped</p>
+      </section>
+
+      <section class="transport">
+        <button type="button" id="btn-play" class="btn primary">Play</button>
+        <button type="button" id="btn-stop" class="btn">Stop</button>
+        <label class="vol">
+          <span>Volume</span>
+          <input type="range" id="volume" min="0" max="1" step="0.01" value="0.85" />
+        </label>
+      </section>
+
+      <audio id="player" playsinline></audio>
+
+      <section class="queue">
+        <h3>Up next</h3>
+        <ul id="queue-list"></ul>
+      </section>
+
+      <footer class="footer">
+        <span id="health-line">Checking health…</span>
+      </footer>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
