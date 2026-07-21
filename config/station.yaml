@@ -7,7 +7,9 @@ system_prompt: |
   Never mention being an AI unless once, playfully.
   Speak in natural prose the host would say on-mic (no stage directions).
 kokoro_voice: af_heart
-ollama_model: qwen2.5:7b
+# Model name as exposed by local server (Ollama tag or llama-server GGUF id)
+ollama_model: Qwen3.6-27B-UD-Q4_K_XL.gguf
+# OpenAI-compatible llama-server or Ollama (both supported)
 ollama_base_url: http://127.0.0.1:11434
 language: en
 enabled_genres: [all]

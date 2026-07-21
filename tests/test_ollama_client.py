@@ -5,23 +5,26 @@ from airadio.clients.ollama import check_ollama, ollama_chat
 
 
 @pytest.mark.asyncio
-async def test_ollama_chat_payload():
+async def test_openai_compat_chat_payload():
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/api/chat"
-        body = request.read()
         import json
 
-        data = json.loads(body)
-        assert data["model"] == "test-model"
-        assert data["stream"] is False
-        assert data["messages"][0]["role"] == "system"
-        assert data["options"]["num_gpu"] == 0
-        return httpx.Response(
-            200, json={"message": {"role": "assistant", "content": " Hello airwaves "}}
-        )
+        if request.url.path == "/v1/chat/completions":
+            data = json.loads(request.read())
+            assert data["model"] == "test-model"
+            assert data["stream"] is False
+            assert data["messages"][0]["role"] == "system"
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {"message": {"role": "assistant", "content": " Hello airwaves "}}
+                    ]
+                },
+            )
+        return httpx.Response(404, json={"error": "not found"})
 
     transport = httpx.MockTransport(handler)
-    # Patch AsyncClient used inside ollama_chat by monkeypatching httpx.AsyncClient
     real = httpx.AsyncClient
 
     class Patched(real):

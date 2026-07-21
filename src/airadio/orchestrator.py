@@ -95,6 +95,14 @@ class Orchestrator:
             )
             await asyncio.sleep(0.5)
 
+        # Pre-package the first segment so the stream URL works as soon as we go on air
+        if self.ready:
+            self.buffering_message = "Packaging audio stream…"
+            try:
+                await asyncio.to_thread(self._package_stream, self.ready[0])
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Pre-package failed: %s", exc)
+
         self.state = RadioState.PLAYING
         self.buffering_message = ""
         if not self._playback_task or self._playback_task.done():
@@ -225,7 +233,12 @@ class Orchestrator:
         self.segment_started_at = None
 
     def _package_stream(self, seg: Segment) -> None:
+        self.hls_dir.mkdir(parents=True, exist_ok=True)
         try:
-            build_hls_from_wav(seg.audio_path, self.hls_dir)
-        except Exception:
-            copy_wav_as_fallback(seg.audio_path, self.hls_dir)
+            log.info("Packaging HLS for %s → %s", seg.audio_path, self.hls_dir)
+            playlist = build_hls_from_wav(seg.audio_path, self.hls_dir)
+            log.info("HLS ready: %s", playlist)
+        except Exception as exc:
+            log.warning("HLS failed (%s); writing WAV fallback", exc)
+            dest = copy_wav_as_fallback(seg.audio_path, self.hls_dir)
+            log.info("WAV fallback ready: %s", dest)

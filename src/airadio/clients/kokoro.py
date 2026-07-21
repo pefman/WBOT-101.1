@@ -12,6 +12,10 @@ log = logging.getLogger(__name__)
 
 SAMPLE_RATE = 24000
 
+# Cached pipeline — loading weights is expensive
+_pipeline = None
+_pipeline_voice_device: str | None = None
+
 
 def kokoro_available() -> tuple[bool, str]:
     if os.environ.get("KOKORO_URL"):
@@ -19,7 +23,8 @@ def kokoro_available() -> tuple[bool, str]:
     try:
         import kokoro  # noqa: F401
 
-        return True, "python package 'kokoro' importable"
+        device = os.environ.get("KOKORO_DEVICE", "cpu")
+        return True, f"python package 'kokoro' importable (device={device})"
     except Exception as exc:  # noqa: BLE001
         return False, f"kokoro not available: {exc}"
 
@@ -28,6 +33,9 @@ def synthesize_kokoro(text: str, voice: str, out_path: Path) -> int:
     """
     Synthesize speech to WAV. Returns duration_ms.
     Uses KOKORO_URL OpenAI-compatible API if set, else local kokoro package.
+
+    Default device is **CPU** so the GPU can stay free for the LLM / ACE-Step.
+    Override with env KOKORO_DEVICE=cuda if you have spare VRAM.
     """
     text = (text or "").strip()
     if not text:
@@ -43,7 +51,6 @@ def synthesize_kokoro(text: str, voice: str, out_path: Path) -> int:
 
 
 def _synthesize_http(text: str, voice: str, out_path: Path, base: str) -> int:
-    # Kokoro-FastAPI OpenAI-compatible speech endpoint
     endpoint = f"{base}/v1/audio/speech"
     payload = {
         "model": "kokoro",
@@ -58,20 +65,35 @@ def _synthesize_http(text: str, voice: str, out_path: Path, base: str) -> int:
     return _duration_ms(out_path)
 
 
+def _get_pipeline():
+    global _pipeline, _pipeline_voice_device
+    device = os.environ.get("KOKORO_DEVICE", "cpu")
+    if _pipeline is not None and _pipeline_voice_device == device:
+        return _pipeline
+
+    from kokoro import KPipeline
+
+    log.info("Loading Kokoro pipeline on device=%s", device)
+    _pipeline = KPipeline(
+        lang_code="a",
+        repo_id="hexgrad/Kokoro-82M",
+        device=device,
+    )
+    _pipeline_voice_device = device
+    return _pipeline
+
+
 def _synthesize_local(text: str, voice: str, out_path: Path) -> int:
     try:
-        from kokoro import KPipeline
+        pipeline = _get_pipeline()
     except ImportError as exc:
         raise RuntimeError(
-            "kokoro package not installed. pip install kokoro soundfile "
-            "and system package espeak-ng, or set KOKORO_URL"
+            "kokoro package not installed. pip install -e . "
+            "and ensure espeakng-loader is available, or set KOKORO_URL"
         ) from exc
 
-    # lang_code 'a' = American English (Kokoro convention)
-    pipeline = KPipeline(lang_code="a")
     chunks: list[np.ndarray] = []
     for result in pipeline(text, voice=voice):
-        # result may be tuple (graphemes, phonemes, audio) or object with .audio
         audio = None
         if hasattr(result, "audio"):
             audio = result.audio
@@ -79,6 +101,9 @@ def _synthesize_local(text: str, voice: str, out_path: Path) -> int:
             audio = result[2]
         if audio is None:
             continue
+        # Move off GPU if tensor
+        if hasattr(audio, "detach"):
+            audio = audio.detach().cpu().numpy()
         arr = np.asarray(audio, dtype=np.float32).reshape(-1)
         chunks.append(arr)
 
@@ -86,7 +111,6 @@ def _synthesize_local(text: str, voice: str, out_path: Path) -> int:
         raise RuntimeError("Kokoro produced no audio")
 
     audio_out = np.concatenate(chunks)
-    # peak normalize lightly
     peak = float(np.max(np.abs(audio_out))) or 1.0
     if peak > 1.0:
         audio_out = audio_out / peak
