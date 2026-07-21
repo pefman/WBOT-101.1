@@ -1,0 +1,10 @@
+id: hard_rock
+name: Hard Rock
+style_prompt: >
+  Hard rock anthem, gritty melodic male lead (not screamed), distorted guitars
+  with palm-muted verses and power-chord choruses, driving 4/4 drums ~140 BPM,
+  thick bass, anthemic shout-along chorus, brief guitar lead between sections.
+lyric_style: bold anthemic lines about night, freedom, resolve; simple memorable chorus
+dj_tone: energetic rock-radio host without yelling
+bpm: 140
+duration_sec: 75

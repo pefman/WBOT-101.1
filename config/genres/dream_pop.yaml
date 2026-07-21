@@ -1,0 +1,10 @@
+id: dream_pop
+name: Dream Pop
+style_prompt: >
+  Dream pop, reverb-soaked guitars, ethereal female or soft dual vocals,
+  shimmering pads, gentle drums, floating atmosphere, ~100 BPM,
+  hazy but melodic, wide stereo image.
+lyric_style: poetic fragments about memory, light, and distance; soft repeating chorus
+dj_tone: dreamy soft-spoken night host
+bpm: 100
+duration_sec: 75

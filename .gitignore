@@ -1,0 +1,15 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+data/
+node_modules/
+web/dist/
+.env
+.DS_Store
+.superpowers/
+.hls_tmp/

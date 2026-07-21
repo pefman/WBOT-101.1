@@ -1,0 +1,10 @@
+id: lofi_chill
+name: Lo-fi Chill
+style_prompt: >
+  Lo-fi hip-hop chill beat, dusty vinyl crackle, mellow Rhodes or soft piano,
+  gentle boom-bap drums, warm bass, rainy-window mood, ~85 BPM, instrumental
+  leaning with soft optional hums, cozy and unhurried mix.
+lyric_style: sparse soft vocal ad-libs or short whispered lines about rest and rain
+dj_tone: soft late-night study-radio voice, unhurried
+bpm: 85
+duration_sec: 75

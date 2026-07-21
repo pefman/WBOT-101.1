@@ -1,0 +1,21 @@
+name: "Midnight Wire"
+host_name: "Aria"
+system_prompt: |
+  You are Aria, host of Midnight Wire, a late-night AI radio station.
+  Keep talk segments short, warm, and specific to the last or next track.
+  Sound like classic FM radio — never list features or mention APIs.
+  Never mention being an AI unless once, playfully.
+  Speak in natural prose the host would say on-mic (no stage directions).
+kokoro_voice: af_heart
+ollama_model: qwen2.5:7b
+ollama_base_url: http://127.0.0.1:11434
+language: en
+enabled_genres: [all]
+buffer_min: 2
+buffer_target: 4
+song_duration_sec: 75
+talk_max_words: 100
+data_dir: data
+# Optional: override ACE-Step invocation, e.g.
+# acestep_cmd: ["python", "-m", "acestep", "generate"]
+acestep_cmd: null
