@@ -26,14 +26,19 @@ def _station(**kw):
 
 
 def test_pick_mode_returns_known():
-    mode, instr = talk_mod._pick_mode()
+    mode, instr, max_w = talk_mod._pick_mode()
     assert mode
     assert instr
+    # max_words optional per mode
+    assert max_w is None or max_w > 0
 
 
 def test_banned_detects_canned():
     assert talk_mod._looks_banned(
         "You're listening to WBOT. Stay tuned — more music is on the way."
+    )
+    assert talk_mod._looks_banned(
+        "Good evening folks, you're tuning in to the best night radio."
     )
     assert not talk_mod._looks_banned(
         "Aria here under the streetlight glow, letting that last chorus hang a little longer."
@@ -53,7 +58,10 @@ def test_prompt_includes_anti_repeat():
         mood_genres=["lofi_chill"],
         recent_talk=["Hello night people, keep the kettle warm."],
         news_angle=None,
+        max_words=40,
     )
     assert "Do NOT reuse" in text
     assert "Hello night people" in text
     assert "more music is on the way" in text  # ban list mentioned
+    assert "TTS rules" in text
+    assert "Hard max ~40 words" in text

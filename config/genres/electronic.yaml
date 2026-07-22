@@ -1,0 +1,22 @@
+id: electronic
+name: Electronic
+major: Electronic
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  electronic, progressive house, energetic, driving, synth pads, analog bass, 808 drums, atmospheric, soft female vocals, wide stereo, 120-140 bpm
+style_prompt: >
+  electronic, progressive house, energetic, driving, synth pads, analog bass, 808 drums, atmospheric, soft female vocals, wide stereo, 120-140 bpm
+lyric_style: >
+  Mostly instrumental; optional short soft vocal hooks
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Build-up]
+  [Drop]
+  [Breakdown]
+  [Build-up]
+  [Drop]
+  [Outro]
+dj_tone: late-night club host
+bpm: 128
+duration_sec: 165

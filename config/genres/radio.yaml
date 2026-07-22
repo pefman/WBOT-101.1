@@ -1,0 +1,19 @@
+id: radio
+name: Radio
+major: Radio
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  radio, eclectic, freeform playlist
+style_prompt: >
+  radio, eclectic, freeform playlist
+lyric_style: >
+  Varies — resolved to a random genre pack per track
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Outro]
+dj_tone: freeform radio host who loves every crate
+bpm: 120
+duration_sec: 165

@@ -35,7 +35,7 @@ uv sync
 echo
 echo "OK. Next:"
 echo "  bash scripts/start_acestep_api.sh"
-echo "  # then restart airadio WITHOUT ACESTEP_MOCK=1"
+echo "  # then start airadio: ./start.sh"
 echo
 echo "API will listen on http://127.0.0.1:8001"
 echo "First song generation downloads model weights into the ACE-Step cache."

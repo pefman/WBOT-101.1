@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Any
 
@@ -10,6 +11,16 @@ log = logging.getLogger(__name__)
 
 # Resolved model when station says "auto"
 _resolved_model: str | None = None
+
+
+def llm_unload_enabled() -> bool:
+    """Unload Ollama from VRAM before ACE music (default on)."""
+    return os.environ.get("AIRADIO_LLM_UNLOAD", "1").lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
 
 
 async def list_models(base_url: str, *, timeout: float = 5.0) -> list[str]:
@@ -41,6 +52,91 @@ async def list_models(base_url: str, *, timeout: float = 5.0) -> list[str]:
     return ids
 
 
+async def list_running_models(base_url: str, *, timeout: float = 5.0) -> list[str]:
+    """Models currently loaded in VRAM (Ollama /api/ps). Empty if unsupported."""
+    base = base_url.rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            r = await client.get(f"{base}/api/ps")
+            if r.status_code != 200:
+                return []
+            names: list[str] = []
+            for m in r.json().get("models") or []:
+                n = m.get("name") or m.get("model")
+                if n:
+                    names.append(str(n))
+            return names
+    except Exception as exc:  # noqa: BLE001
+        log.debug("list_running_models failed: %s", exc)
+        return []
+
+
+async def unload_model(
+    base_url: str,
+    model: str | None = None,
+    *,
+    timeout: float = 60.0,
+) -> None:
+    """
+    Free VRAM by unloading Ollama model(s).
+
+    Uses POST /api/generate with keep_alive=0 (Ollama). Safe no-op if the
+    server is OpenAI-only or already empty.
+    """
+    if not llm_unload_enabled():
+        return
+
+    base = base_url.rstrip("/")
+    targets: list[str] = []
+    if model and str(model).strip().lower() not in ("", "auto", "default", "*"):
+        targets.append(str(model).strip())
+    # Always try to unload whatever is actually resident
+    for name in await list_running_models(base, timeout=min(timeout, 10.0)):
+        if name not in targets:
+            targets.append(name)
+
+    if not targets:
+        # Still poke configured/auto model — keep_alive 0 is harmless if absent
+        resolved = await resolve_model(base, model or "auto")
+        if resolved and resolved.lower() not in ("", "auto"):
+            targets.append(resolved)
+
+    if not targets:
+        log.info("  [llm] unload: nothing loaded")
+        return
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        for name in targets:
+            try:
+                # Official unload: zero keep_alive, no generation work required
+                r = await client.post(
+                    f"{base}/api/generate",
+                    json={"model": name, "keep_alive": 0, "stream": False},
+                )
+                if r.status_code >= 400:
+                    # Fallback chat endpoint
+                    r2 = await client.post(
+                        f"{base}/api/chat",
+                        json={
+                            "model": name,
+                            "messages": [],
+                            "keep_alive": 0,
+                            "stream": False,
+                        },
+                    )
+                    if r2.status_code >= 400:
+                        log.warning(
+                            "  [llm] unload %s failed: generate=%s chat=%s",
+                            name,
+                            r.status_code,
+                            r2.status_code,
+                        )
+                        continue
+                log.info("  [llm] unloaded «%s» (VRAM free for ACE)", name)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("  [llm] unload %s error: %s", name, exc)
+
+
 async def resolve_model(base_url: str, configured: str) -> str:
     """If configured is auto/empty or missing, pick first available model."""
     global _resolved_model
@@ -69,6 +165,20 @@ async def resolve_model(base_url: str, configured: str) -> str:
     return _resolved_model
 
 
+def _default_num_gpu() -> int | None:
+    """
+    None = let Ollama place layers on GPU (fast text while model is loaded).
+    Set OLLAMA_NUM_GPU=0 to force CPU layers even when model is resident.
+    """
+    raw = os.environ.get("OLLAMA_NUM_GPU")
+    if raw is None or raw.strip() == "":
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return None
+
+
 async def ollama_chat(
     base_url: str,
     model: str,
@@ -76,11 +186,16 @@ async def ollama_chat(
     user: str,
     *,
     timeout: float = 180.0,
-    num_gpu: int | None = 0,
+    num_gpu: int | None = None,
     temperature: float = 0.95,
     max_tokens: int = 220,
+    keep_alive: str | int | None = "10m",
 ) -> str:
-    """Chat with a local LLM (OpenAI-compat or Ollama native)."""
+    """Chat with a local LLM (OpenAI-compat or Ollama native).
+
+    Loads the model into VRAM on first use. Prefer unload_model() before ACE
+    so music can use the GPU. keep_alive keeps weights warm between talk/lyrics.
+    """
     base = base_url.rstrip("/")
     resolved = await resolve_model(base, model)
     if resolved.lower() in ("", "auto", "default", "*"):
@@ -89,11 +204,15 @@ async def ollama_chat(
             "Load a model (ollama pull … or start llama-server with a GGUF)."
         )
 
+    if num_gpu is None:
+        num_gpu = _default_num_gpu()
+
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
 
+    log.info("  [llm] chat model=%s (loads into VRAM if needed)…", resolved)
     try:
         return await _openai_chat(
             base,
@@ -112,6 +231,7 @@ async def ollama_chat(
                 timeout=timeout,
                 num_gpu=num_gpu,
                 temperature=temperature,
+                keep_alive=keep_alive,
             )
         except Exception as ollama_exc:
             global _resolved_model
@@ -164,6 +284,7 @@ async def _ollama_native_chat(
     timeout: float,
     num_gpu: int | None,
     temperature: float = 0.95,
+    keep_alive: str | int | None = "10m",
 ) -> str:
     url = f"{base}/api/chat"
     options: dict[str, Any] = {"temperature": temperature}
@@ -175,6 +296,8 @@ async def _ollama_native_chat(
         "messages": messages,
         "options": options,
     }
+    if keep_alive is not None:
+        payload["keep_alive"] = keep_alive
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.post(url, json=payload)

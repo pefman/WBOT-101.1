@@ -1,9 +1,23 @@
 id: latin
-name: Latin Music
+name: Latin
 major: Latin
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  latin, salsa, rhythmic, passionate, percussion, congas, piano, acoustic guitar, brass, vocals, energetic, warm
 style_prompt: >
-  Latin music spectrum (reggaeton, salsa, bachata, Latin pop energy): syncopated percussion, warm bass, melodic hooks, danceable groove, Spanish or bilingual-friendly vocal character, festive or romantic heat, ~90–110 BPM (or reggaeton dembow ~90–100), vibrant modern mix.
-lyric_style: Romantic or party energy, rhythmic phrasing, Spanish-leaning or bilingual hooks when natural, danceable chorus
-dj_tone: sunny night host with bounce
+  latin, salsa, rhythmic, passionate, percussion, congas, piano, acoustic guitar, brass, vocals, energetic, warm
+lyric_style: >
+  Rhythmic passionate lines; danceable chorus hooks
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Verse]
+  [Chorus]
+  [Bridge]
+  [Chorus]
+  [Outro]
+dj_tone: warm dance-floor host
 bpm: 100
 duration_sec: 165

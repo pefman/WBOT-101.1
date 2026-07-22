@@ -29,6 +29,12 @@ dev = [
   "pytest>=8.0",
   "pytest-asyncio>=0.24.0",
 ]
+# SD-Turbo album covers (optional; ~5GB model download on first use)
+cover = [
+  "diffusers>=0.30.0",
+  "accelerate>=0.30.0",
+  "safetensors>=0.4.0",
+]
 
 [project.scripts]
 airadio = "airadio.main:run"

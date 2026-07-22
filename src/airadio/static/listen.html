@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Listen · WBOT</title>
+    <script src="/static/hls.min.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #080808;
+        color: #f4f1eb;
+        font-family:
+          Inter,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        overflow: hidden;
+      }
+      .listen {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 28px 20px 40px;
+        text-align: center;
+      }
+      .station {
+        position: fixed;
+        top: 18px;
+        left: 0;
+        right: 0;
+        font-size: 11px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: #6a6050;
+        pointer-events: none;
+      }
+      .live {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 28px;
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: #8a8070;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #3a3a3a;
+      }
+      .dot.on {
+        background: #c9a45c;
+        box-shadow: 0 0 10px #c9a45c88;
+      }
+      .cover {
+        width: min(72vw, 280px);
+        height: min(72vw, 280px);
+        border: 1px solid #333;
+        background: linear-gradient(135deg, #141414, #2a2418);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        margin: 0 auto 28px;
+        position: relative;
+      }
+      .cover.has-art {
+        border-color: #5a4a30;
+      }
+      .cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .cover .glyph {
+        font-size: 48px;
+        color: #c9a45c;
+        line-height: 1;
+      }
+      .kind {
+        font-size: 11px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #c9a45c;
+        margin-bottom: 10px;
+      }
+      .title {
+        font-size: clamp(22px, 5vw, 32px);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        line-height: 1.25;
+        margin: 0 0 10px;
+        max-width: 22em;
+      }
+      .artist {
+        font-size: clamp(15px, 3.5vw, 18px);
+        color: #a89880;
+        margin: 0;
+        max-width: 22em;
+      }
+      .meta {
+        margin-top: 14px;
+        font-size: 12px;
+        color: #666;
+        letter-spacing: 0.04em;
+      }
+      .gate {
+        position: fixed;
+        inset: 0;
+        background: #080808ee;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 20;
+        cursor: pointer;
+      }
+      .gate[hidden] {
+        display: none !important;
+      }
+      .gate-card {
+        text-align: center;
+        padding: 28px 32px;
+        border: 1px solid #2a2420;
+        background: #0e0e0e;
+      }
+      .gate-card p {
+        margin: 0 0 8px;
+        font-size: 13px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #c9a45c;
+      }
+      .gate-card span {
+        font-size: 12px;
+        color: #666;
+      }
+      .off-air .title {
+        color: #666;
+        font-weight: 400;
+        font-size: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="station" id="station-label">WBOT</div>
+    <div class="listen" id="stage">
+      <div class="live">
+        <div class="dot" id="dot"></div>
+        <span id="live-label">Off air</span>
+      </div>
+      <div class="cover" id="cover">
+        <span class="glyph" id="glyph">◉</span>
+        <img id="cover-img" alt="" hidden />
+      </div>
+      <div class="kind" id="kind">—</div>
+      <h1 class="title" id="title">Waiting for the station…</h1>
+      <p class="artist" id="artist"></p>
+      <p class="meta" id="meta"></p>
+    </div>
+
+    <div class="gate" id="gate" hidden>
+      <div class="gate-card">
+        <p>Tap to listen</p>
+        <span>Browser needs a tap to start audio</span>
+      </div>
+    </div>
+
+    <audio id="player" playsinline></audio>
+    <script src="/static/listen.js"></script>
+  </body>
+</html>

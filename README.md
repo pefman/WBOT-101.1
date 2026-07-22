@@ -15,36 +15,43 @@
 **Outside the app (local services you already run):**
 
 - A **local LLM HTTP server** (OpenAI-compatible), e.g. llama.cpp `llama-server` or Ollama — configured in `config/station.yaml`
-- Optional **ACE-Step** checkout for real music (`ACESTEP_HOME`), or `ACESTEP_MOCK=1` for synthetic tracks
+- **ACE-Step** music API (`bash scripts/install_acestep.sh` then `bash scripts/start_acestep_api.sh`)
 
 The radio does **not** `apt install` ffmpeg, espeak, or anything else.
 
-## One-time setup (project only)
+## One-time setup
 
 ```bash
 cd WBOT-101.1
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-
-# First-time model weights land under ~/.cache/huggingface (or set HF_HOME
-# inside the project if you want that cache here too).
-
-bash scripts/setup_check.sh
+bash scripts/setup_check.sh          # packages + bundled tools only
+bash scripts/install_acestep.sh      # ACE-Step music stack (vendor/, GPU + disk)
 ```
 
-## Run (single process)
+Also run a **local LLM** (Ollama, llama-server, …) matching `config/station.yaml`
+(`ollama_base_url` / `ollama_model`).
+
+## Run
 
 ```bash
-source .venv/bin/activate
-export KOKORO_DEVICE=cpu          # leave GPU free for your LLM / music
-export ACESTEP_MOCK=1             # or real ACE-Step via ACESTEP_HOME
+# Start LLM yourself (example):
+#   ollama serve && ollama pull qwen2.5:7b
 
-# Point station.yaml at your local LLM (already set for llama-server if used)
-uvicorn airadio.main:app --app-dir src --host 127.0.0.1 --port 8000
+./start.sh
 ```
 
-Open **http://127.0.0.1:8000/** — UI is served by the app. No Vite/npm required.
+`./start.sh` will:
+
+1. Check the project venv / packages  
+2. Start **ACE-Step** on `:8001` if it is installed but not running  
+3. Fail with clear **FAIL + fix** messages if LLM / ACE / tools are not ready  
+4. Start the radio on **0.0.0.0:8000** (LAN-reachable; open `http://<your-ip>:8000/`)  
+
+5. On **Ctrl-C**, stop the radio (and ACE if this script started it)
+
+Manual checks only: `python -m airadio.preflight`
 
 ## Configure
 
@@ -55,17 +62,25 @@ Open **http://127.0.0.1:8000/** — UI is served by the app. No Vite/npm require
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| GET | `/` | Web player |
+| GET | `/` | Web player (desk / controls) |
+| GET | `/listen` | Listen-only page (stream + now playing, no controls) |
 | GET | `/api/health` | Self-contained component check |
-| GET | `/api/now` | Now playing |
-| POST | `/api/control` | `{"action":"play"\|"stop"}` |
+| GET | `/api/now` | Now playing (+ `generation` stage/progress) |
+| POST | `/api/control` | `{"action":"play"\|"stop"\|"skip"}` |
+| POST | `/api/request` | Queue a listener talk bit: `{"text":"…"}` |
+| GET | `/api/library` | Kept songs (re-air pool) |
+| POST | `/api/favorite` | `{"segment_id":"…","favorite":true}` |
 | GET | `/stream/playlist.m3u8` | HLS |
+
+**Desk prefs** (DJ, genres, language, voice) persist in `data/prefs.json` across restarts.  
+**Song library** + GC settings: `library_max_songs`, `reair_chance`, `segment_max_*` in `config/station.yaml`.  
+**Cover art:** `cover_backend: sd_turbo` downloads **SD-Turbo** on app start when `cover_auto_download: true` (first boot ~3–5 GB). Install extras: `pip install -e ".[cover]"`.
 
 ## Tests
 
 ```bash
 source .venv/bin/activate
-export ACESTEP_MOCK=1 KOKORO_DEVICE=cpu
+export KOKORO_DEVICE=cpu
 pytest -v
 ```
 

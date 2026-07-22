@@ -310,6 +310,218 @@ def build_talk_song_continuous(
     return talk_ms, total_ms, overlap
 
 
+def build_song_talk_continuous(
+    song_path: Path,
+    talk_path: Path,
+    out_path: Path,
+    *,
+    overlap_sec: float = 6.0,
+    bed_gain: float = 0.32,
+    duck_sec: float = 0.85,
+) -> tuple[int, int, float]:
+    """
+    Real-radio outro: song plays full, host comes in over the last
+    ``overlap_sec`` while music ducks to a bed, then talk continues dry
+    after the track ends — **single timeline, no splice**.
+
+    Returns ``(song_clear_ms, total_ms, overlap_used_sec)`` where
+    ``song_clear_ms`` is wall time until the DJ starts (phase-1 now-playing).
+    """
+    song_path = Path(song_path)
+    talk_path = Path(talk_path)
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    song_dur = probe_duration_ms(song_path) / 1000.0
+    talk_dur = probe_duration_ms(talk_path) / 1000.0
+    if talk_dur <= 0 or song_dur <= 0:
+        raise ValueError("talk/song has zero duration")
+
+    # Need enough song body before the host + a short talk
+    overlap = max(3.5, min(float(overlap_sec), song_dur - 2.0, 10.0))
+    if song_dur < overlap + 1.5:
+        raise ValueError("song too short for outro talk bed")
+    if talk_dur < 0.6:
+        raise ValueError("talk too short for outro handoff")
+
+    bed = max(0.08, min(0.6, float(bed_gain)))
+    duck = max(0.35, min(float(duck_sec), overlap * 0.45))
+
+    # DJ mic opens this many seconds into the song
+    t_voice = song_dur - overlap
+    t_duck_end = t_voice + duck
+    # Soft tail so the last notes don't click under the host
+    fade_tail = min(0.7, max(0.25, overlap * 0.12))
+    t_fade_start = max(t_duck_end + 0.05, song_dur - fade_tail)
+    delay_ms = max(0, int(round(t_voice * 1000)))
+
+    if not ffmpeg_available():
+        out_path.write_bytes(song_path.read_bytes())
+        song_ms = int(round(song_dur * 1000))
+        return song_ms, song_ms, 0.0
+
+    # Song volume on the *master* timeline (eval=frame):
+    #   t < t_voice:              full
+    #   t_voice → t_duck_end:     1 → bed (duck under host)
+    #   t_duck_end → t_fade_start: bed
+    #   t_fade_start → song_dur:  bed → 0
+    #   t >= song_dur:            0 (talk continues alone)
+    vol = (
+        f"if(lt(t\\,{t_voice:.4f})\\,1\\,"
+        f"if(lt(t\\,{t_duck_end:.4f})\\,"
+        f"1-{(1.0 - bed):.4f}*(t-{t_voice:.4f})/{duck:.4f}\\,"
+        f"if(lt(t\\,{t_fade_start:.4f})\\,{bed:.4f}\\,"
+        f"if(lt(t\\,{song_dur:.4f})\\,"
+        f"{bed:.4f}*(1-(t-{t_fade_start:.4f})/{max(0.05, song_dur - t_fade_start):.4f})\\,"
+        f"0))))"
+    )
+
+    # Soft voice ease-in so the first word isn't a hard cut-in over the bed
+    voice_fade_in = min(0.22, max(0.08, overlap * 0.04))
+
+    fc = (
+        f"[0:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+        f"volume={vol}:eval=frame[music];"
+        f"[1:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+        f"afade=t=in:st=0:d={voice_fade_in:.4f},"
+        f"adelay={delay_ms}|{delay_ms}[voice];"
+        f"[music][voice]amix=inputs=2:duration=longest:dropout_transition=2:normalize=0[out]"
+    )
+    cmd = [
+        ffmpeg_exe(),
+        "-y",
+        "-i",
+        str(song_path),
+        "-i",
+        str(talk_path),
+        "-filter_complex",
+        fc,
+        "-map",
+        "[out]",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        "-sample_fmt",
+        "s16",
+        str(out_path),
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0 or not out_path.is_file():
+        raise RuntimeError(
+            f"song→talk continuous failed: {(proc.stderr or '')[-900:]}"
+        )
+
+    song_clear_ms = int(round(t_voice * 1000))
+    total_ms = probe_duration_ms(out_path)
+    expected = t_voice + talk_dur
+    log.info(
+        "Smooth song→talk (outro=%.1fs bed=%.2f duck=%.2fs "
+        "song_clear=%.1fs total=%.1fs expect~%.1fs) → %s",
+        overlap,
+        bed,
+        duck,
+        t_voice,
+        total_ms / 1000.0,
+        expected,
+        out_path.name,
+    )
+    return song_clear_ms, total_ms, overlap
+
+
+def build_skip_crossfade(
+    from_path: Path,
+    to_path: Path,
+    out_path: Path,
+    *,
+    from_start_sec: float = 0.0,
+    tail_sec: float = 1.4,
+    bed_gain: float = 0.28,
+) -> tuple[int, int, float]:
+    """
+    Skip handoff: very short bed of the current item under the *start* of the
+    next (usually DJ), then finish the next dry.
+
+    Defaults are snappy on purpose — long tails feel like the old song
+    “starts again” after a stream swap.
+
+    Returns ``(tail_ms, total_ms, tail_used_sec)``.
+    """
+    from_path = Path(from_path)
+    to_path = Path(to_path)
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    from_dur = probe_duration_ms(from_path) / 1000.0
+    to_dur = probe_duration_ms(to_path) / 1000.0
+    if from_dur <= 0.4 or to_dur <= 0.4:
+        raise ValueError("skip crossfade needs playable source and destination")
+
+    start = max(0.0, min(float(from_start_sec), max(0.0, from_dur - 0.25)))
+    avail = max(0.25, from_dur - start)
+    # Keep skip beds short so the host arrives almost immediately
+    tail = max(0.7, min(float(tail_sec), avail, 2.2))
+    bed = max(0.08, min(0.45, float(bed_gain)))
+    end = min(from_dur, start + tail)
+    actual_tail = max(0.55, end - start)
+
+    if not ffmpeg_available():
+        out_path.write_bytes(to_path.read_bytes())
+        to_ms = int(round(to_dur * 1000))
+        return 0, to_ms, 0.0
+
+    # Fast fade on the bed; next opens almost immediately at full
+    fade_out = max(0.45, min(actual_tail, actual_tail * 0.9))
+    voice_in = min(0.12, max(0.05, actual_tail * 0.08))
+
+    fc = (
+        f"[0:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+        f"atrim={start:.4f}:{end:.4f},asetpts=PTS-STARTPTS,"
+        f"afade=t=out:st=0:d={fade_out:.4f},"
+        f"volume={bed:.4f}[bed];"
+        f"[1:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+        f"afade=t=in:st=0:d={voice_in:.4f}[next];"
+        f"[bed][next]amix=inputs=2:duration=longest:dropout_transition=0.6:normalize=0[out]"
+    )
+    cmd = [
+        ffmpeg_exe(),
+        "-y",
+        "-i",
+        str(from_path),
+        "-i",
+        str(to_path),
+        "-filter_complex",
+        fc,
+        "-map",
+        "[out]",
+        "-ar",
+        "48000",
+        "-ac",
+        "2",
+        "-sample_fmt",
+        "s16",
+        str(out_path),
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0 or not out_path.is_file():
+        raise RuntimeError(
+            f"skip crossfade failed: {(proc.stderr or '')[-900:]}"
+        )
+
+    tail_ms = int(round(actual_tail * 1000))
+    total_ms = probe_duration_ms(out_path)
+    log.info(
+        "Skip crossfade (from=%.1fs tail=%.1fs bed=%.2f → next=%.1fs total=%.1fs) %s",
+        start,
+        actual_tail,
+        bed,
+        to_dur,
+        total_ms / 1000.0,
+        out_path.name,
+    )
+    return tail_ms, total_ms, actual_tail
+
+
 def extract_wav_from(
     in_path: Path,
     out_path: Path,

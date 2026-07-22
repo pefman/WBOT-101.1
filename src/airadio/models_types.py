@@ -22,6 +22,10 @@ class Genre:
     bpm: int
     duration_sec: int
     major: str = ""
+    # ACE-Step caption: short comma-separated tags (genre first, 5–12 items)
+    tags: str = ""
+    # Lyrics form with [Section] tags for ACE / LLM fill-in
+    lyrics_skeleton: str = ""
 
 
 @dataclass(frozen=True)
@@ -39,6 +43,7 @@ class DJ:
     blurb: str
     voice: str
     personality: str
+    voice_samples: tuple[str, ...] = ()
 
 
 @dataclass
@@ -57,7 +62,6 @@ class StationConfig:
     talk_max_words: int
     data_dir: Path
     ollama_auto_pull: bool = True
-    acestep_cmd: list[str] | None = None
     config_dir: Path | None = None
     # 0.0–1.0 probability a talk break includes a funny world-news bit
     news_bit_chance: float = 0.4
@@ -69,6 +73,21 @@ class StationConfig:
     crossfade_sec: float = 3.0
     # Relative gain of the song bed under talk (0–1); ramps to 1 after voice
     crossfade_bed_gain: float = 0.42
+    # Song→talk: DJ opens over the last N seconds of the track (0 = off)
+    outro_crossfade_sec: float = 6.0
+    # Song bed level under the host during the outro (0–1)
+    outro_bed_gain: float = 0.32
+    # Song library: max keepers on disk + chance to re-air instead of new ACE gen
+    library_max_songs: int = 40
+    reair_chance: float = 0.28
+    # Segment GC: drop unprotected media older than this (hours)
+    segment_max_age_hours: float = 48.0
+    segment_max_files: int = 200
+    # Cover art: "sd_turbo" (default) or "procedural"
+    cover_backend: str = "sd_turbo"
+    cover_sd_steps: int = 2
+    # Auto-download SD-Turbo weights on app start when using sd_turbo backend
+    cover_auto_download: bool = True
 
 
 @dataclass

@@ -1,9 +1,23 @@
 id: reggae
 name: Reggae
 major: Reggae
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  reggae, classic reggae, laid-back, positive, offbeat guitar, organ, bass heavy, drums, male vocals, warm, organic, 70-90 bpm
 style_prompt: >
-  Reggae: offbeat skank guitars/keys, deep bass, one-drop or steppers drum feel, relaxed pocket, roots or modern reggae color, sunny or conscious vibe, ~70–90 BPM, bass-forward Caribbean mix.
-lyric_style: Uplifting or conscious lines, laid-back flow, community and island imagery, warm chorus
-dj_tone: warm roots host
-bpm: 78
+  reggae, classic reggae, laid-back, positive, offbeat guitar, organ, bass heavy, drums, male vocals, warm, organic, 70-90 bpm
+lyric_style: >
+  Message or story lines; catchy repetitive hooks
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Verse]
+  [Chorus]
+  [Bridge]
+  [Chorus]
+  [Outro]
+dj_tone: laid-back island host
+bpm: 80
 duration_sec: 165

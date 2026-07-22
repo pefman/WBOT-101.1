@@ -1,9 +1,23 @@
 id: country
 name: Country
 major: Country
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  country, modern country, heartfelt, storytelling, acoustic guitar, pedal steel, banjo, fiddle, male or female vocals, twangy, warm, polished
 style_prompt: >
-  Modern country with classic roots: acoustic and electric guitars, optional steel or banjo color, storytelling vocal, steady drums, melodic bass, verse–chorus with singalong lift, open-road feel, ~100–120 BPM, warm radio mix.
-lyric_style: Story-driven verses, plainspoken detail, heartland or heartbreak themes, big simple chorus
-dj_tone: easygoing country radio host
-bpm: 108
+  country, modern country, heartfelt, storytelling, acoustic guitar, pedal steel, banjo, fiddle, male or female vocals, twangy, warm, polished
+lyric_style: >
+  Storytelling about home, love, or the road; short clear lines
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Verse]
+  [Chorus]
+  [Bridge]
+  [Chorus]
+  [Outro]
+dj_tone: friendly road-trip host
+bpm: 100
 duration_sec: 165

@@ -1,5 +1,5 @@
 # Seed angles for funny / satirical DJ "world news" bits (fully local — LLM expands).
-# Keep light and radio-safe.
+# Sharp OK; avoid real-victim cruelty and graphic real violence.
 angles:
   - "diplomats arguing over the seating chart at a meaningless summit"
   - "a world leader's teleprompter going rogue mid-speech"
@@ -16,3 +16,5 @@ angles:
   - "scientists confirming that meetings could have been emails, worldwide"
   - "a global fashion week where the hot trend is wearing yesterday's jacket"
   - "politicians promising to fix traffic by inventing more traffic"
+  - "a tech keynote where the demo fails and everyone pretends it was the plan"
+  - "tabloids treating a politician's vacation playlist like classified intel"

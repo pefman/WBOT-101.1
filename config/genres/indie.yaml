@@ -1,0 +1,23 @@
+id: indie
+name: Indie
+major: Indie
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  indie, indie rock, nostalgic, dreamy, electric guitar, clean, soft drums, bass, breathy vocals, warm, polished, 100-120 bpm
+style_prompt: >
+  indie, indie rock, nostalgic, dreamy, electric guitar, clean, soft drums, bass, breathy vocals, warm, polished, 100-120 bpm
+lyric_style: >
+  Observational, nostalgic; melodic slightly anthemic hooks
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Verse]
+  [Chorus]
+  [Bridge]
+  [Chorus]
+  [Outro]
+dj_tone: cool college-radio host
+bpm: 110
+duration_sec: 165

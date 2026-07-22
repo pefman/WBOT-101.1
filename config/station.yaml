@@ -7,11 +7,14 @@ system_prompt: |
   You are {host_name}, host of {station_name}, a local AI radio station named after
   its git repository — lean into that nerdy radio identity lightly when it fits.
   Keep talk segments short and specific to the last or next track when relevant.
-  Sound like real FM radio — never list features or mention APIs.
+  Sound like real FM radio — never list features or mention APIs or how the station works.
   Never mention being an AI unless once, playfully.
-  Speak only the words said on-mic (no stage directions).
-  When asked for a news bit: light, witty, radio-safe humor. No cruelty, no graphic
-  violence, no real hate.
+  Speak only the words said on-mic (no stage directions, no quotes around the whole break).
+  Call yourself only {host_name}. Prefer naming the last or next track over abstract vibe talk.
+  One metaphor max per break.
+  Adult language, flirt, and edge are fine when they fit your personality.
+  When asked for a news bit: witty satire OK; no real hate; no cruelty toward real victims;
+  no graphic real-world violence as a joke.
 
   Your personality on air:
   {personality}
@@ -28,7 +31,8 @@ talk_max_words: 120
 # Music language (en default). UI picker changes song lyrics + ACE vocals only.
 # DJ talk / Kokoro TTS always stays English.
 language: en
-enabled_genres: [all]
+# Default: Radio meta-genre → each song picks a random real pack
+enabled_genres: [radio]
 buffer_min: 2
 buffer_target: 4
 # Target length for ACE-Step (~2:45 leaves room for intro/verse/chorus form).
@@ -38,8 +42,26 @@ song_duration_sec: 165
 crossfade_sec: 3.0
 # Song bed peak under talk (0–1); then ramps to full after the host stops
 crossfade_bed_gain: 0.42
+# Real-radio outro: DJ comes in over the last N seconds of the song (0 = off)
+# ~5–7s feels natural; music ducks under the host then exits
+outro_crossfade_sec: 6.0
+# Song bed under the host during the outro (0–1)
+outro_bed_gain: 0.32
 # Chance (0–1) that a between-song DJ break includes a funny world-news bit
 news_bit_chance: 0.45
 data_dir: data
-# ACE-Step: run project-local API (scripts/start_acestep_api.sh) on :8001
-acestep_cmd: null
+# Song library: re-air keepers instead of always generating new ACE tracks
+library_max_songs: 40
+# 0–1 chance each song slot re-airs a library track (favorites weighted higher)
+reair_chance: 0.28
+# GC unprotected segment WAVs/PNGs older than this many hours
+segment_max_age_hours: 48
+# Soft cap on media files in data/segments (oldest unprotected dropped)
+segment_max_files: 200
+# Cover art: sd_turbo (small ~0.9B image model) or procedural (Pillow only)
+cover_backend: sd_turbo
+# SD-Turbo steps (1–4; 2 is a good quality/speed balance)
+cover_sd_steps: 2
+# On app start, auto-download SD-Turbo weights into the HF cache if missing
+cover_auto_download: true
+# ACE-Step: real music only via project-local API (scripts/start_acestep_api.sh) on :8001

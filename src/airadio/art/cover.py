@@ -1,11 +1,11 @@
-"""Procedural album covers — Pillow only, no LLM / diffusion."""
+"""Album covers: procedural Pillow art, or SD-Turbo background + Pillow type."""
 
 from __future__ import annotations
 
 import colorsys
 import hashlib
 import logging
-import math
+import os
 import random
 from pathlib import Path
 
@@ -15,28 +15,23 @@ log = logging.getLogger(__name__)
 
 SIZE = 512
 
-# Base hues (0–1) by genre family — dark radio aesthetic
+# Base hues (0–1) by genre — dark radio aesthetic
 _GENRE_HUE: dict[str, float] = {
     "pop": 0.92,
     "rock": 0.05,
-    "hiphop_rap": 0.75,
-    "edm": 0.55,
-    "rnb_soul": 0.88,
+    "hiphop": 0.75,
+    "electronic": 0.55,
+    "rnb": 0.88,
     "country": 0.12,
-    "heavy_metal": 0.0,
-    "melodic_progressive_metal": 0.58,
-    "alternative_rock": 0.62,
-    "indie_rock_pop": 0.15,
-    "punk_rock": 0.95,
+    "metal": 0.0,
+    "indie": 0.15,
     "jazz": 0.10,
     "blues": 0.60,
     "reggae": 0.28,
     "latin": 0.08,
-    "kpop": 0.85,
-    "folk_singer_songwriter": 0.11,
+    "folk": 0.11,
     "classical": 0.14,
-    "gospel_christian": 0.13,
-    "techno_house": 0.52,
+    "gospel": 0.13,
 }
 
 
@@ -82,7 +77,103 @@ def _wrap(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_w
     return lines[:4]
 
 
-def generate_cover(
+def _draw_text_shadow(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[float, float],
+    text: str,
+    *,
+    font: ImageFont.ImageFont,
+    fill: tuple[int, int, int],
+) -> None:
+    """Readable type over photo art without a full black bar."""
+    x, y = xy
+    for dx, dy in ((0, 2), (2, 0), (-2, 0), (0, -1), (1, 1), (-1, 1), (2, 2)):
+        draw.text((x + dx, y + dy), text, font=font, fill=(0, 0, 0, 200))
+    draw.text((x, y), text, font=font, fill=(*fill, 255))
+
+
+def _overlay_type(
+    img: Image.Image,
+    *,
+    title: str,
+    artist: str,
+    size: int,
+) -> Image.Image:
+    """Frame + title/artist on full artwork (no half-cover black bar)."""
+    base = img.convert("RGB").resize((size, size), Image.Resampling.LANCZOS)
+    # Soft bottom scrim: blend toward black in RGB so convert() can't wipe the art
+    pixels = base.load()
+    band_top = int(size * 0.82)
+    for y in range(band_top, size):
+        t = (y - band_top) / max(1, (size - 1) - band_top)
+        # 0 → ~0.55 darken only at the very bottom edge
+        darken = 0.12 + 0.45 * (t * t)
+        keep = 1.0 - darken
+        for x in range(size):
+            r, g, b = pixels[x, y]
+            pixels[x, y] = (
+                int(r * keep),
+                int(g * keep),
+                int(b * keep),
+            )
+
+    # Text / frame on a transparent layer, then composite (preserves full art)
+    overlay = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay, "RGBA")
+    gold = (201, 164, 92)
+
+    inset = 10
+    draw.rectangle(
+        (inset, inset, size - inset - 1, size - inset - 1),
+        outline=(*gold, 200),
+        width=2,
+    )
+
+    title_font = _font(max(22, size // 16))
+    artist_font = _font(max(16, size // 22))
+    max_w = size - 48
+    title_lines = _wrap(draw, (title or "Untitled").strip(), title_font, max_w)
+    artist_lines = _wrap(draw, (artist or "").strip(), artist_font, max_w)
+
+    y = size - 28
+    for line in reversed(artist_lines):
+        tw = draw.textlength(line, font=artist_font)
+        _draw_text_shadow(
+            draw,
+            ((size - tw) / 2, y - artist_font.size),
+            line,
+            font=artist_font,
+            fill=(230, 220, 200),
+        )
+        y -= artist_font.size + 3
+    y -= 4
+    for line in reversed(title_lines):
+        tw = draw.textlength(line, font=title_font)
+        _draw_text_shadow(
+            draw,
+            ((size - tw) / 2, y - title_font.size),
+            line,
+            font=title_font,
+            fill=(255, 252, 245),
+        )
+        y -= title_font.size + 5
+
+    mark = _font(max(12, size // 36))
+    label = "WBOT"
+    tw = draw.textlength(label, font=mark)
+    _draw_text_shadow(
+        draw,
+        (size - tw - 20, 16),
+        label,
+        font=mark,
+        fill=gold,
+    )
+
+    composed = Image.alpha_composite(base.convert("RGBA"), overlay)
+    return composed.convert("RGB")
+
+
+def generate_procedural_cover(
     out_path: Path,
     *,
     title: str,
@@ -91,32 +182,34 @@ def generate_cover(
     seed: str | None = None,
     size: int = SIZE,
 ) -> Path:
-    """
-    Draw a square album cover and write PNG to ``out_path``.
-    Seeded so the same segment id always yields the same art.
-    """
+    """Classic geometric Pillow cover (no neural net)."""
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     rng = _seed_rng(seed or f"{artist}|{title}|{genre_id}")
 
     hue = _GENRE_HUE.get(genre_id or "", rng.random())
+    # progressive metal pack maps near metal
+    if genre_id == "melodic_progressive_metal":
+        hue = 0.72
     hue2 = (hue + 0.08 + rng.random() * 0.12) % 1.0
 
     img = Image.new("RGB", (size, size), _rgb(hue, 0.35, 0.08))
     draw = ImageDraw.Draw(img, "RGBA")
 
-    # Soft radial-ish backdrop with layered blobs
     for _ in range(6):
         cx = rng.randint(-size // 5, size + size // 5)
         cy = rng.randint(-size // 5, size + size // 5)
         r = rng.randint(size // 4, size // 1)
-        col = _rgb(hue2 if rng.random() > 0.4 else hue, 0.45 + rng.random() * 0.35, 0.12 + rng.random() * 0.25)
+        col = _rgb(
+            hue2 if rng.random() > 0.4 else hue,
+            0.45 + rng.random() * 0.35,
+            0.12 + rng.random() * 0.25,
+        )
         draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(*col, 90))
 
     img = img.filter(ImageFilter.GaussianBlur(radius=12))
     draw = ImageDraw.Draw(img, "RGBA")
 
-    # Geometric motif
     style = rng.choice(["rings", "bars", "grid", "arc"])
     accent = _rgb(hue, 0.55, 0.72)
     gold = (201, 164, 92)
@@ -145,52 +238,109 @@ def generate_cover(
             draw.line((x, 0, x, size), fill=(*accent, 40), width=1)
         for y in range(step, size, step):
             draw.line((0, y, size, y), fill=(*accent, 40), width=1)
-        # diagonal streak
         draw.line((0, size // 3, size, size * 2 // 3), fill=(*gold, 90), width=3)
-    else:  # arc
+    else:
         bbox = (size // 8, size // 8, size - size // 8, size - size // 8)
-        draw.arc(bbox, start=rng.randint(0, 90), end=rng.randint(200, 340), fill=(*gold, 200), width=6)
-        draw.arc(bbox, start=rng.randint(0, 180), end=rng.randint(220, 360), fill=(*accent, 140), width=3)
+        draw.arc(
+            bbox,
+            start=rng.randint(0, 90),
+            end=rng.randint(200, 340),
+            fill=(*gold, 200),
+            width=6,
+        )
+        draw.arc(
+            bbox,
+            start=rng.randint(0, 180),
+            end=rng.randint(220, 360),
+            fill=(*accent, 140),
+            width=3,
+        )
 
-    # Bottom vignette for text readability
-    for y in range(size // 2, size):
-        t = (y - size // 2) / (size // 2)
-        alpha = int(180 * t * t)
-        draw.line((0, y, size, y), fill=(0, 0, 0, alpha))
-
-    # Thin gold frame
-    inset = 10
-    draw.rectangle(
-        (inset, inset, size - inset - 1, size - inset - 1),
-        outline=(*gold, 180),
-        width=2,
-    )
-
-    # Text
-    title_font = _font(max(22, size // 16))
-    artist_font = _font(max(16, size // 22))
-    max_w = size - 48
-    title_lines = _wrap(draw, (title or "Untitled").strip(), title_font, max_w)
-    artist_lines = _wrap(draw, (artist or "").strip(), artist_font, max_w)
-
-    y = size - 36
-    for line in reversed(artist_lines):
-        tw = draw.textlength(line, font=artist_font)
-        draw.text(((size - tw) / 2, y - artist_font.size), line, font=artist_font, fill=(200, 190, 170))
-        y -= artist_font.size + 4
-    y -= 6
-    for line in reversed(title_lines):
-        tw = draw.textlength(line, font=title_font)
-        draw.text(((size - tw) / 2, y - title_font.size), line, font=title_font, fill=(244, 241, 235))
-        y -= title_font.size + 6
-
-    # Tiny station mark
-    mark = _font(max(12, size // 36))
-    label = "WBOT"
-    tw = draw.textlength(label, font=mark)
-    draw.text((size - tw - 20, 18), label, font=mark, fill=(*gold, 200))
-
-    img = img.convert("RGB")
+    img = _overlay_type(img, title=title, artist=artist, size=size)
     img.save(out_path, format="PNG", optimize=True)
-    log.info("Cover art written %s", out_path)
+    log.info("Procedural cover written %s", out_path)
     return out_path
+
+
+def generate_sd_turbo_cover(
+    out_path: Path,
+    *,
+    title: str,
+    artist: str,
+    genre_id: str | None = None,
+    seed: str | None = None,
+    size: int = SIZE,
+    steps: int = 2,
+) -> Path:
+    """SD-Turbo background + Pillow title/artist overlay."""
+    from airadio.art.sd_turbo import generate_sd_background
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    bg = generate_sd_background(
+        title=title,
+        artist=artist,
+        genre_id=genre_id,
+        seed=seed,
+        size=size,
+        steps=steps,
+    )
+    img = _overlay_type(bg, title=title, artist=artist, size=size)
+    img.save(out_path, format="PNG", optimize=True)
+    log.info("SD-Turbo cover written %s", out_path)
+    return out_path
+
+
+def resolve_cover_backend(explicit: str | None = None) -> str:
+    """Return ``sd_turbo`` or ``procedural``."""
+    raw = (explicit or os.environ.get("AIRADIO_COVER_BACKEND") or "sd_turbo").strip().lower()
+    if raw in ("sd_turbo", "sdturbo", "turbo", "sd"):
+        return "sd_turbo"
+    return "procedural"
+
+
+def generate_cover(
+    out_path: Path,
+    *,
+    title: str,
+    artist: str,
+    genre_id: str | None = None,
+    seed: str | None = None,
+    size: int = SIZE,
+    backend: str | None = None,
+    steps: int = 2,
+) -> Path:
+    """
+    Draw a square album cover and write PNG to ``out_path``.
+
+    Default backend is SD-Turbo when available; falls back to procedural art
+    if the model/deps fail. Seeded so the same segment id is stable for
+    procedural; SD-Turbo uses the seed as a torch generator seed.
+    """
+    choice = resolve_cover_backend(backend)
+    if choice == "sd_turbo":
+        try:
+            from airadio.art.sd_turbo import sd_turbo_available
+
+            if not sd_turbo_available():
+                raise RuntimeError("diffusers/torch not available")
+            return generate_sd_turbo_cover(
+                out_path,
+                title=title,
+                artist=artist,
+                genre_id=genre_id,
+                seed=seed,
+                size=size,
+                steps=steps,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("SD-Turbo cover failed (%s); using procedural fallback", exc)
+
+    return generate_procedural_cover(
+        out_path,
+        title=title,
+        artist=artist,
+        genre_id=genre_id,
+        seed=seed,
+        size=size,
+    )

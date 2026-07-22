@@ -1,9 +1,21 @@
 id: classical
-name: Classical Music
+name: Classical
 major: Classical
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  classical, orchestral, cinematic, emotional, strings, piano, woodwinds, brass, no vocals, rich, dynamic, high fidelity
 style_prompt: >
-  Classical: orchestral or solo piano/strings character, clear thematic development, dynamic phrasing, concert-hall space, no pop backbeat required, lyrical melody lines, expressive tempo flexibility, refined acoustic mix.
-lyric_style: instrumental (no pop vocals); if any vocalise, pure classical line without contemporary pop lyrics
-dj_tone: refined calm host
-bpm: 90
+  classical, orchestral, cinematic, emotional, strings, piano, woodwinds, brass, no vocals, rich, dynamic, high fidelity
+lyric_style: >
+  instrumental; no vocals
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Main Theme]
+  [Development]
+  [Climax]
+  [Resolution]
+  [Outro]
+dj_tone: calm refined host
+bpm: 72
 duration_sec: 165

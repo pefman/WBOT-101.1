@@ -1,0 +1,23 @@
+id: folk
+name: Folk
+major: Folk
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  folk, indie folk, intimate, acoustic, fingerpicked guitar, banjo, soft vocals, warm, organic, live recording feel, 70-90 bpm
+style_prompt: >
+  folk, indie folk, intimate, acoustic, fingerpicked guitar, banjo, soft vocals, warm, organic, live recording feel, 70-90 bpm
+lyric_style: >
+  Narrative, intimate, simple memorable hooks
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Verse]
+  [Chorus]
+  [Bridge]
+  [Chorus]
+  [Outro]
+dj_tone: intimate acoustic host
+bpm: 80
+duration_sec: 165

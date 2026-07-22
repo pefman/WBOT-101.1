@@ -42,9 +42,22 @@
                 <div></div><div></div><div></div><div></div>
               </div>
 
+              <div class="gen-progress" id="gen-progress" hidden>
+                <div class="gen-track" aria-hidden="true">
+                  <div class="gen-fill" id="gen-fill"></div>
+                </div>
+                <div class="gen-meta">
+                  <span id="gen-stage">—</span>
+                  <span id="gen-ready"></span>
+                </div>
+              </div>
+
               <div class="controls">
                 <button type="button" id="btn-play">Play</button>
                 <button type="button" id="btn-stop">Stop</button>
+                <button type="button" id="btn-skip" title="Skip current segment">
+                  Skip
+                </button>
                 <label class="vol">
                   <span>Vol</span>
                   <input
@@ -61,18 +74,13 @@
           </div>
         </section>
 
-        <aside class="panel">
-          <div class="label">Coming Right Up</div>
-          <div class="upnext" id="queue-list"></div>
-
-          <div class="history-block">
-            <div class="label">Recently Played</div>
-            <div class="history-list" id="history-list"></div>
-          </div>
+        <aside class="panel" aria-label="Recently played">
+          <div class="label">Recently Played</div>
+          <div class="history-list" id="history-list"></div>
         </aside>
       </div>
 
-      <!-- Compact station controls: host · music language -->
+      <!-- Compact station controls: host · music language · request -->
       <section class="station-bar" aria-label="Station controls">
         <div class="picker" id="host-picker" data-picker="host">
           <span class="picker-label">Host</span>
@@ -110,6 +118,23 @@
             <span class="picker-chevron" aria-hidden="true">▾</span>
           </button>
           <div class="picker-menu" id="lang-menu" role="listbox" hidden></div>
+        </div>
+      </section>
+
+      <section class="request-bar" aria-label="Listener request">
+        <label class="request-label" for="request-input">Request a bit</label>
+        <div class="request-row">
+          <input
+            type="text"
+            id="request-input"
+            maxlength="400"
+            placeholder="e.g. roast the last track · weather bit · dedication…"
+            autocomplete="off"
+          />
+          <button type="button" id="btn-request">Queue</button>
+        </div>
+        <div class="request-hint" id="request-hint">
+          Next talk break will weave this in.
         </div>
       </section>
 

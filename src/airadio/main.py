@@ -11,23 +11,59 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from airadio.art.sd_turbo import cover_model_status
 from airadio.clients.ollama_pull import manager as ollama_manager
 from airadio.config import load_djs, load_moods, load_station
 from airadio.health import check_health
 from airadio.languages import is_known_language, list_languages
 from airadio.orchestrator import Orchestrator
 from airadio.paths import ensure_bundled_espeak, static_web_dir
+from airadio.prefs import load_prefs, merge_prefs
 from airadio.voices import is_known_voice, list_voices
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+# Quiet noisy HTTP client chatter so station pipeline logs stay readable
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
+
+class _QuietAccessFilter(logging.Filter):
+    """Hide high-frequency UI poll requests from uvicorn access logs."""
+
+    _paths = (
+        "GET /api/now",
+        "GET /api/queue",
+        "GET /api/history",
+        "GET /api/llm/status",
+        "GET /api/health",
+    )
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            msg = record.getMessage()
+        except Exception:  # noqa: BLE001
+            return True
+        return not any(p in msg for p in self._paths)
+
+
+logging.getLogger("uvicorn.access").addFilter(_QuietAccessFilter())
 log = logging.getLogger("airadio")
 
 
 class ControlBody(BaseModel):
-    action: str = Field(..., pattern="^(play|stop)$")
+    action: str = Field(..., pattern="^(play|stop|skip)$")
+
+
+class RequestBody(BaseModel):
+    text: str = Field(..., min_length=1, max_length=500)
+
+
+class FavoriteBody(BaseModel):
+    segment_id: str = Field(..., min_length=1)
+    favorite: bool = True
 
 
 class MoodBody(BaseModel):
@@ -62,26 +98,62 @@ def create_app() -> FastAPI:
     default_dj_id, djs = load_djs()
     if station.default_dj in djs:
         default_dj_id = station.default_dj
+
+    # Restore desk prefs from previous session (if any)
+    prefs = load_prefs(station.data_dir)
+    pref_dj = str(prefs.get("dj_id") or "").strip()
+    if pref_dj and pref_dj in djs:
+        default_dj_id = pref_dj
+    pref_lang = str(prefs.get("language") or "").strip().lower()
+    if pref_lang and is_known_language(pref_lang):
+        station.language = pref_lang
+    pref_voice = str(prefs.get("kokoro_voice") or "").strip()
+    if pref_voice and is_known_voice(pref_voice):
+        station.kokoro_voice = pref_voice
+    pref_genres = prefs.get("enabled_genres")
+    if isinstance(pref_genres, list) and pref_genres:
+        known = [g for g in pref_genres if isinstance(g, str) and g in genres]
+        if known:
+            station.enabled_genres = known
+
     orchestrator = Orchestrator(station, genres)
     orchestrator.set_system_template(station.system_prompt_template or station.system_prompt)
 
-    # Apply default DJ (name + personality + voice)
+    # Apply default / restored DJ (name + personality + voice)
     if default_dj_id in djs:
         d = djs[default_dj_id]
+        apply_voice = True
+        # If prefs set an explicit voice, keep it over DJ default
+        if pref_voice and is_known_voice(pref_voice):
+            apply_voice = False
         orchestrator.set_dj(
             d.id,
             name=d.name,
             personality=d.personality,
             voice=d.voice,
             blurb=d.blurb,
-            apply_voice=True,
+            apply_voice=apply_voice,
+            voice_samples=list(d.voice_samples),
         )
+        if pref_voice and is_known_voice(pref_voice):
+            orchestrator.set_voice(pref_voice, clear_pending_talk=False)
 
-    # All genres on by default (no mood packs in the UI)
+    # Genres from prefs, else station default (Radio = freeform random)
+    gids = list(station.enabled_genres) if station.enabled_genres else ["radio"]
+    if "radio" in genres and not gids:
+        gids = ["radio"]
+    label = None
+    if not prefs.get("enabled_genres"):
+        label = "Radio" if gids == ["radio"] else None
     orchestrator.set_genres(
-        list(genres.keys()),
+        gids,
         clear_pending_songs=False,
-        label="All genres",
+        label=label,
+    )
+    log.info(
+        "Desk genres at boot (%d): %s",
+        len(gids),
+        ", ".join(gids) if len(gids) <= 8 else ", ".join(gids[:8]) + f" … +{len(gids) - 8}",
     )
 
     @asynccontextmanager
@@ -103,6 +175,26 @@ def create_app() -> FastAPI:
                 log.info("Ollama ensure: %s", st.get("detail") or st.get("status"))
             except Exception as exc:  # noqa: BLE001
                 log.warning("Ollama ensure failed: %s", exc)
+
+        # Ensure SD-Turbo cover weights are on disk (download on first boot)
+        backend = str(getattr(station, "cover_backend", "") or "").lower()
+        auto_dl = bool(getattr(station, "cover_auto_download", True))
+        if auto_dl and backend in ("sd_turbo", "sdturbo", "turbo", "sd"):
+            try:
+                import asyncio
+
+                from airadio.art.sd_turbo import ensure_sd_turbo_weights
+
+                log.info("Ensuring SD-Turbo cover model is downloaded…")
+                st = await asyncio.to_thread(ensure_sd_turbo_weights)
+                log.info(
+                    "Cover model ensure: %s — %s",
+                    st.get("status"),
+                    st.get("detail") or st.get("error") or "",
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("SD-Turbo ensure failed (covers fall back to procedural): %s", exc)
+
         log.info(
             "Station «%s» ready — %d genres, %d moods, %d djs",
             station.name,
@@ -159,6 +251,7 @@ def create_app() -> FastAPI:
         result = app.state.orchestrator.set_language(code)
         app.state.station.language = result["language"]
         app.state.station.system_prompt = app.state.orchestrator.station.system_prompt
+        merge_prefs(app.state.station.data_dir, language=result["language"])
         return {"ok": True, **result}
 
     @app.get("/api/config")
@@ -181,6 +274,9 @@ def create_app() -> FastAPI:
             "ollama_model": s.ollama_model,
             "ollama_auto_pull": s.ollama_auto_pull,
             "llm_pull": ollama_manager.status(),
+            "cover_backend": getattr(s, "cover_backend", "sd_turbo"),
+            "cover_auto_download": getattr(s, "cover_auto_download", True),
+            "cover_model": cover_model_status(),
             "self_contained": True,
         }
 
@@ -217,10 +313,16 @@ def create_app() -> FastAPI:
             voice=d.voice,
             blurb=d.blurb,
             apply_voice=body.apply_voice,
+            voice_samples=list(d.voice_samples),
         )
         app.state.station.host_name = result["host_name"]
         app.state.station.kokoro_voice = result["voice"]
         app.state.station.system_prompt = app.state.orchestrator.station.system_prompt
+        merge_prefs(
+            app.state.station.data_dir,
+            dj_id=result["dj_id"],
+            kokoro_voice=result["voice"],
+        )
         return {"ok": True, **result}
 
     @app.get("/api/voices")
@@ -243,6 +345,7 @@ def create_app() -> FastAPI:
         orch: Orchestrator = app.state.orchestrator
         result = orch.set_voice(vid, clear_pending_talk=True)
         app.state.station.kokoro_voice = result["voice_id"]
+        merge_prefs(app.state.station.data_dir, kokoro_voice=result["voice_id"])
         return {"ok": True, **result}
 
     @app.get("/api/moods")
@@ -308,6 +411,39 @@ def create_app() -> FastAPI:
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        merge_prefs(
+            app.state.station.data_dir,
+            enabled_genres=result.get("enabled_genres") or gids,
+        )
+        return {"ok": True, **result}
+
+    @app.post("/api/request")
+    async def api_request(body: RequestBody) -> dict[str, Any]:
+        """Queue a listener talk request for the next DJ break."""
+        try:
+            result = app.state.orchestrator.queue_talk_request(body.text)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return result
+
+    @app.get("/api/requests")
+    async def api_requests() -> dict[str, Any]:
+        orch: Orchestrator = app.state.orchestrator
+        return {"pending": orch.pending_requests()}
+
+    @app.get("/api/library")
+    async def api_library() -> dict[str, Any]:
+        orch: Orchestrator = app.state.orchestrator
+        return {"songs": orch.library.meta_list(limit=30)}
+
+    @app.post("/api/favorite")
+    async def api_favorite(body: FavoriteBody) -> dict[str, Any]:
+        try:
+            result = app.state.orchestrator.favorite_song(
+                body.segment_id.strip(), favorite=body.favorite
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
         return {"ok": True, **result}
 
     @app.get("/api/now")
@@ -322,7 +458,7 @@ def create_app() -> FastAPI:
     async def api_history() -> dict[str, Any]:
         """Last songs that finished airplay (newest first)."""
         return {
-            "songs": app.state.orchestrator.played_songs_meta(limit=5),
+            "songs": app.state.orchestrator.played_songs_meta(limit=8),
         }
 
     @app.get("/api/covers/{segment_id}.png")
@@ -365,6 +501,11 @@ def create_app() -> FastAPI:
 
             asyncio.create_task(_play())
             return {"ok": True, "action": "play", "state": orch.state.value}
+        if body.action == "skip":
+            result = orch.skip()
+            if not result.get("ok"):
+                raise HTTPException(status_code=409, detail=result)
+            return {"ok": True, "action": "skip", **result}
         await orch.stop()
         return {"ok": True, "action": "stop", "state": orch.state.value}
 
@@ -412,6 +553,14 @@ def create_app() -> FastAPI:
                 raise HTTPException(404, "UI not packaged")
             return FileResponse(index)
 
+        @app.get("/listen")
+        async def ui_listen():
+            """Public listen-only page: stream + now playing, no desk controls."""
+            path = web / "listen.html"
+            if not path.is_file():
+                raise HTTPException(404, "Listen UI not packaged")
+            return FileResponse(path)
+
         log.info("Serving self-contained UI from %s", web)
     else:
         log.warning("No static UI at %s", web)
@@ -425,7 +574,7 @@ app = create_app()
 def run() -> None:
     import uvicorn
 
-    uvicorn.run("airadio.main:app", host="127.0.0.1", port=8000, reload=False)
+    uvicorn.run("airadio.main:app", host="0.0.0.0", port=8000, reload=False)
 
 
 if __name__ == "__main__":

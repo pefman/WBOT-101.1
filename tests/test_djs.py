@@ -42,7 +42,7 @@ def test_set_dj_switches_name_personality_and_voice(tmp_path: Path):
         ollama_model="qwen2.5:7b",
         ollama_base_url="http://127.0.0.1:11434",
         language="en",
-        enabled_genres=["indie_rock_pop"],
+        enabled_genres=["indie"],
         buffer_min=1,
         buffer_target=2,
         song_duration_sec=30,
@@ -54,8 +54,8 @@ def test_set_dj_switches_name_personality_and_voice(tmp_path: Path):
         default_dj="rex",
     )
     genres = {
-        "indie_rock_pop": Genre(
-            id="indie_rock_pop",
+        "indie": Genre(
+            id="indie",
             name="Indie Rock",
             style_prompt="indie",
             lyric_style="alt",
@@ -108,7 +108,7 @@ def test_set_dj_drops_pending_talk_with_old_voice(tmp_path: Path):
         ollama_model="qwen2.5:7b",
         ollama_base_url="http://127.0.0.1:11434",
         language="en",
-        enabled_genres=["indie_rock_pop"],
+        enabled_genres=["indie"],
         buffer_min=1,
         buffer_target=2,
         song_duration_sec=30,
@@ -118,8 +118,8 @@ def test_set_dj_drops_pending_talk_with_old_voice(tmp_path: Path):
         default_dj="june",
     )
     genres = {
-        "indie_rock_pop": Genre(
-            id="indie_rock_pop",
+        "indie": Genre(
+            id="indie",
             name="Indie Rock",
             style_prompt="indie",
             lyric_style="alt",
@@ -145,7 +145,7 @@ def test_set_dj_drops_pending_talk_with_old_voice(tmp_path: Path):
         id="s1",
         kind="song",
         title="Track",
-        genre_id="indie_rock_pop",
+        genre_id="indie",
         text="",
         audio_path=tmp_path / "s.wav",
         duration_ms=30000,
@@ -204,7 +204,7 @@ def test_stale_talk_discarded_after_dj_change(tmp_path: Path):
         ollama_model="qwen2.5:7b",
         ollama_base_url="http://127.0.0.1:11434",
         language="en",
-        enabled_genres=["indie_rock_pop"],
+        enabled_genres=["indie"],
         buffer_min=1,
         buffer_target=2,
         song_duration_sec=30,
@@ -214,8 +214,8 @@ def test_stale_talk_discarded_after_dj_change(tmp_path: Path):
         default_dj="rex",
     )
     genres = {
-        "indie_rock_pop": Genre(
-            id="indie_rock_pop",
+        "indie": Genre(
+            id="indie",
             name="Indie Rock",
             style_prompt="indie",
             lyric_style="alt",
@@ -270,7 +270,7 @@ def test_stale_talk_discarded_after_dj_change(tmp_path: Path):
             id="song1",
             kind="song",
             title="Track",
-            genre_id="indie_rock_pop",
+            genre_id="indie",
             text="",
             audio_path=tmp_path / "s.wav",
             duration_ms=500,

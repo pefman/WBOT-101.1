@@ -1,0 +1,23 @@
+id: hiphop
+name: Hip-Hop
+major: Hip-Hop
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  hip-hop, boom bap, confident, rhythmic, 808 drums, deep bass, sampled keys, male vocals, rap vocals, punchy, 85-95 bpm
+style_prompt: >
+  hip-hop, boom bap, confident, rhythmic, 808 drums, deep bass, sampled keys, male vocals, rap vocals, punchy, 85-95 bpm
+lyric_style: >
+  Rhythmic short lines; chantable chorus hooks
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Verse]
+  [Chorus]
+  [Bridge]
+  [Chorus]
+  [Outro]
+dj_tone: confident street-smart host
+bpm: 90
+duration_sec: 165

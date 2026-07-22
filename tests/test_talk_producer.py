@@ -58,8 +58,9 @@ def test_news_prompt_includes_angle():
         mood_genres=["lofi_chill"],
         recent_talk=None,
         news_angle="stock markets react to breakfast",
+        max_words=55,
     )
-    assert "funny world-news" in text
+    assert "world-news" in text
     assert "stock markets react to breakfast" in text
     assert "WBOT-101.1" in text
 

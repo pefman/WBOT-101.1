@@ -1,9 +1,22 @@
 id: jazz
 name: Jazz
 major: Jazz
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  jazz, cool jazz, swinging, sophisticated, piano, upright bass, drums, saxophone, soft vocals, warm, live, 90-120 bpm
 style_prompt: >
-  Jazz: swinging or straight-ahead groove, piano/guitar/bass/drums combo (optional horns), improvisational feel, warm acoustic tone, tasteful solos, smoky late-night club atmosphere, ~90–140 BPM, natural dynamic mix.
-lyric_style: Sparse cool lines or scat-adjacent phrasing if vocal; otherwise instrumental storytelling feel in vocalise style
-dj_tone: old-school radio charm host
-bpm: 110
+  jazz, cool jazz, swinging, sophisticated, piano, upright bass, drums, saxophone, soft vocals, warm, live, 90-120 bpm
+lyric_style: >
+  Smooth storytelling or instrumental; sophisticated phrasing
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Instrumental Solo]
+  [Verse]
+  [Chorus]
+  [Outro]
+dj_tone: smooth late lounge host
+bpm: 105
 duration_sec: 165

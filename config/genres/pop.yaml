@@ -1,9 +1,25 @@
 id: pop
 name: Pop
 major: Pop
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  pop, modern pop, catchy, upbeat, synths, electric guitar, punchy drums, bass, polished vocals, bright, 100-120 bpm
 style_prompt: >
-  Contemporary pop: clear verse–pre–chorus–chorus form, sticky topline hooks, polished but not sterile production, punchy drums or 808 hybrid kit, warm bass, supportive pads or rhythm guitar, radio-ready stereo width, ~110–125 BPM, bright mix with controlled low end.
-lyric_style: Catchy conversational verses, memorable chorus hook, light imagery, singable vowels, radio-safe romance or self-empowerment
-dj_tone: upbeat friendly pop radio host
-bpm: 118
+  pop, modern pop, catchy, upbeat, synths, electric guitar, punchy drums, bass, polished vocals, bright, 100-120 bpm
+lyric_style: >
+  Relatable everyday lines; big memorable hooks
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Pre-Chorus]
+  [Chorus]
+  [Verse]
+  [Pre-Chorus]
+  [Chorus]
+  [Bridge]
+  [Final Chorus]
+  [Outro]
+dj_tone: bright friendly pop host
+bpm: 115
 duration_sec: 165

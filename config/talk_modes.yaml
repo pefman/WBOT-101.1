@@ -2,45 +2,54 @@
 modes:
   bridge:
     weight: 22
+    max_words: 40
     instruction: >
       Bridge between songs: react to what just played and tease what's coming.
       Specific, warm, radio-natural. One clear emotional color.
   mood:
     weight: 14
+    max_words: 45
     instruction: >
       Lean into the station's current mood and genre vibe. Paint the room, the hour,
       the feeling — without listing tech features.
   news:
     weight: 14
+    max_words: 55
     instruction: >
-      Drop a brief funny world-news bit (1–2 sentences), radio-safe satire, then
-      glide back to music. Witty not mean.
+      Drop a brief funny world-news bit (1–2 sentences), sharp satire OK, then
+      glide back to music. Witty; no real hate or cruelty toward real victims.
   time:
     weight: 12
+    max_words: 40
     instruction: >
       Play the daypart: late night / midnight / early hours energy. Make time feel
       cinematic. Mention the station once at most.
   story:
     weight: 12
+    max_words: 60
     instruction: >
       Tiny true-sounding anecdote or slice of night life (2–3 sentences), then
-      hand off to music. Specific sensory detail.
+      hand off to music. Specific sensory detail. Adult edge OK.
   station_lore:
     weight: 10
+    max_words: 35
     instruction: >
       Light station identity: this is a radio born from a git repo, nerdy FM charm,
       not a corporate explainer. One clever line, not a pitch.
   listener:
     weight: 8
+    max_words: 40
     instruction: >
-      Fake dedication / imaginary listener shout-out (first name only), radio-safe,
-      sweet or funny, then back to the set.
+      Fake dedication / imaginary listener shout-out (first name only), sweet,
+      funny, or a little dirty if the host is — then back to the set.
   intro:
     weight: 6
+    max_words: 45
     instruction: >
       Cold open / top-of-set energy: welcome or re-welcome without sounding like
-      a template. Fresh phrasing.
+      a template. Fresh phrasing. Do not start with "good evening folks".
   silence_break:
     weight: 2
+    max_words: 18
     instruction: >
       Ultra-minimal: one short, breathy line only. Almost nothing. Still human.

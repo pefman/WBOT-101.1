@@ -70,9 +70,60 @@ def test_config_and_now(client):
     assert r.json()["state"] == "stopped"
 
 
+def test_listen_page(client):
+    c, _orch = client
+    r = c.get("/listen")
+    assert r.status_code == 200
+    body = r.text
+    assert "listen.js" in body or "Now playing" in body or "Tap to listen" in body
+
+
 def test_control_play_stop(client):
     c, orch = client
     r = c.post("/api/control", json={"action": "play"})
     assert r.status_code == 200
     r = c.post("/api/control", json={"action": "stop"})
     assert r.status_code == 200
+
+
+def test_control_skip(client):
+    c, orch = client
+    orch.state = RadioState.PLAYING
+    orch.current = MagicMock()
+    orch.current.title = "Now"
+    orch.skip = MagicMock(
+        return_value={"ok": True, "skipped": True, "title": "Now", "state": "playing"}
+    )
+    r = c.post("/api/control", json={"action": "skip"})
+    assert r.status_code == 200
+    assert r.json()["action"] == "skip"
+    orch.skip.assert_called_once()
+
+
+def test_request_and_library_endpoints(client):
+    c, orch = client
+    orch.queue_talk_request = MagicMock(
+        return_value={"ok": True, "queued": "weather bit", "pending": 1}
+    )
+    orch.pending_requests = MagicMock(return_value=["weather bit"])
+    orch.library = MagicMock()
+    orch.library.meta_list = MagicMock(return_value=[])
+    orch.favorite_song = MagicMock(
+        return_value={"id": "x", "title": "T", "artist": "A", "favorite": True}
+    )
+
+    r = c.post("/api/request", json={"text": "weather bit"})
+    assert r.status_code == 200
+    assert r.json()["pending"] == 1
+
+    r = c.get("/api/requests")
+    assert r.status_code == 200
+    assert r.json()["pending"] == ["weather bit"]
+
+    r = c.get("/api/library")
+    assert r.status_code == 200
+    assert "songs" in r.json()
+
+    r = c.post("/api/favorite", json={"segment_id": "x", "favorite": True})
+    assert r.status_code == 200
+    assert r.json()["favorite"] is True

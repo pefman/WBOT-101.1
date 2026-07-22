@@ -1,0 +1,24 @@
+id: metal
+name: Metal
+major: Metal
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  metal, heavy metal, aggressive, powerful, distorted guitars, double bass drums, heavy bass, harsh vocals, intense, high energy, 140-180 bpm
+style_prompt: >
+  metal, heavy metal, aggressive, powerful, distorted guitars, double bass drums, heavy bass, harsh vocals, intense, high energy, 140-180 bpm
+lyric_style: >
+  Aggressive short lines; anthemic or shouted hooks
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Verse]
+  [Chorus]
+  [Breakdown]
+  [Guitar Solo]
+  [Chorus]
+  [Outro]
+dj_tone: rock-radio gravel with respect for heavy music
+bpm: 150
+duration_sec: 165

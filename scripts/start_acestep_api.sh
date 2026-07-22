@@ -12,14 +12,15 @@ fi
 export PATH="$HOME/.local/bin:$PATH"
 cd "$VENDOR"
 
-# Defaults tuned for RTX 4090 (~24GB) — quality + speed
+# Defaults: DiT-only is reliable when VRAM is shared (Ollama, browser, etc.).
+# Thinking/5Hz LM needs several extra free GB — enable with ACESTEP_INIT_LLM=true.
 export ACESTEP_API_HOST="${ACESTEP_API_HOST:-127.0.0.1}"
 export ACESTEP_API_PORT="${ACESTEP_API_PORT:-8001}"
 export ACESTEP_CONFIG_PATH="${ACESTEP_CONFIG_PATH:-acestep-v15-turbo}"
-export ACESTEP_LM_MODEL_PATH="${ACESTEP_LM_MODEL_PATH:-acestep-5Hz-lm-1.7B}"
+export ACESTEP_LM_MODEL_PATH="${ACESTEP_LM_MODEL_PATH:-acestep-5Hz-lm-0.6B}"
 export ACESTEP_LM_BACKEND="${ACESTEP_LM_BACKEND:-pt}"
-export ACESTEP_INIT_LLM="${ACESTEP_INIT_LLM:-true}"
-# Leave headroom if LLM also on GPU
+export ACESTEP_INIT_LLM="${ACESTEP_INIT_LLM:-false}"
+# Offload DiT when idle if VRAM is tight
 export ACESTEP_OFFLOAD_TO_CPU="${ACESTEP_OFFLOAD_TO_CPU:-false}"
 
 LOG="${ROOT}/data/acestep-api.log"

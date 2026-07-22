@@ -6,23 +6,23 @@ moods:
     label: Late Night
     blurb: Soft, atmospheric, after-hours
     genres:
-      - rnb_soul
+      - rnb
       - jazz
       - blues
-      - indie_rock_pop
+      - indie
       - classical
-      - folk_singer_songwriter
+      - folk
 
   chill:
     label: Chill
     blurb: Unhurried, warm, easy listening
     genres:
       - jazz
-      - rnb_soul
-      - folk_singer_songwriter
+      - rnb
+      - folk
       - classical
       - reggae
-      - indie_rock_pop
+      - indie
       - blues
 
   upbeat:
@@ -30,52 +30,46 @@ moods:
     blurb: Energy, dance floors, road-trip volume
     genres:
       - pop
-      - edm
-      - techno_house
+      - electronic
       - latin
-      - kpop
-      - punk_rock
       - rock
+      - hiphop
 
   dark:
     label: Dark Energy
     blurb: Grit, neon, late drive intensity
     genres:
-      - heavy_metal
+      - metal
       - melodic_progressive_metal
-      - hiphop_rap
-      - techno_house
-      - alternative_rock
-      - edm
+      - hiphop
+      - electronic
+      - rock
 
   organic:
     label: Organic
     blurb: Acoustic, live-room, human touch
     genres:
       - country
-      - folk_singer_songwriter
+      - folk
       - blues
       - jazz
-      - gospel_christian
-      - indie_rock_pop
+      - gospel
+      - indie
 
   electronic:
     label: Electronic
     blurb: Synths, pulses, machine soul
     genres:
-      - edm
-      - techno_house
+      - electronic
       - pop
-      - kpop
 
   pop:
     label: Pop
     blurb: Hooks, gloss, radio candy
     genres:
       - pop
-      - kpop
-      - indie_rock_pop
-      - rnb_soul
+      - indie
+      - rnb
       - latin
 
   rock:
@@ -83,18 +77,16 @@ moods:
     blurb: Guitars, drive, live-band power
     genres:
       - rock
-      - alternative_rock
-      - indie_rock_pop
-      - punk_rock
-      - heavy_metal
+      - indie
+      - metal
       - melodic_progressive_metal
 
   hiphop:
     label: Hip-Hop
     blurb: Bars, 808s, head-nod nights
     genres:
-      - hiphop_rap
-      - rnb_soul
+      - hiphop
+      - rnb
       - pop
 
   classical:
@@ -102,8 +94,8 @@ moods:
     blurb: Orchestra, piano, concert hall calm
     genres:
       - classical
-      - folk_singer_songwriter
-      - gospel_christian
+      - folk
+      - gospel
 
   eclectic:
     label: Eclectic

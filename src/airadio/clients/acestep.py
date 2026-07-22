@@ -4,14 +4,12 @@ import asyncio
 import json
 import logging
 import os
-import shutil
 import subprocess
 import time
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 import httpx
-import numpy as np
 import soundfile as sf
 
 log = logging.getLogger(__name__)
@@ -23,11 +21,8 @@ def _api_base(url: str | None = None) -> str:
     return (url or os.environ.get("ACESTEP_API_URL") or DEFAULT_API_URL).rstrip("/")
 
 
-def acestep_available(cmd: list[str] | None = None) -> tuple[bool, str]:
-    if os.environ.get("ACESTEP_MOCK") == "1":
-        return True, "ACESTEP_MOCK=1 (synthetic audio)"
-
-    # Prefer live ACE-Step REST API (project-local vendor install)
+def acestep_available() -> tuple[bool, str]:
+    """Require a live ACE-Step REST API (real music only)."""
     base = _api_base()
     try:
         r = httpx.get(f"{base}/health", timeout=2.0)
@@ -35,16 +30,6 @@ def acestep_available(cmd: list[str] | None = None) -> tuple[bool, str]:
             return True, f"ACE-Step API at {base}"
     except Exception:  # noqa: BLE001
         pass
-
-    if cmd:
-        exe = cmd[0]
-        if shutil.which(exe) or Path(exe).exists():
-            return True, f"custom cmd: {' '.join(cmd)}"
-        return False, f"acestep_cmd executable not found: {exe}"
-
-    home = os.environ.get("ACESTEP_HOME")
-    if home and Path(home).is_dir():
-        return True, f"ACESTEP_HOME={home} (start API: scripts/start_acestep_api.sh)"
 
     vendor = Path(__file__).resolve().parents[3] / "vendor" / "ACE-Step-1.5"
     if vendor.is_dir():
@@ -56,90 +41,8 @@ def acestep_available(cmd: list[str] | None = None) -> tuple[bool, str]:
 
     return (
         False,
-        "ACE-Step not ready. Install: bash scripts/install_acestep.sh "
-        "then: bash scripts/start_acestep_api.sh "
-        "(or ACESTEP_MOCK=1 for placeholder music)",
-    )
-
-
-async def generate_song(
-    style: str,
-    lyrics: str,
-    duration_sec: int,
-    out_path: Path,
-    *,
-    cmd: list[str] | None = None,
-    api_url: str | None = None,
-    vocal_language: str = "en",
-) -> None:
-    """
-    Generate a song file with ACE-Step 1.5.
-
-    Modes (first match wins):
-    1. ACESTEP_MOCK=1 → synthetic placeholder
-    2. ACE-Step REST API (ACESTEP_API_URL, default http://127.0.0.1:8001)
-    3. station acestep_cmd / ACESTEP_CMD subprocess
-    4. ACESTEP_HOME generate.py subprocess
-    """
-    out_path = Path(out_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if os.environ.get("ACESTEP_MOCK") == "1":
-        await asyncio.to_thread(_write_mock_song, out_path, duration_sec, style)
-        return
-
-    base = _api_base(api_url)
-    if await _api_reachable(base):
-        await _generate_via_api(
-            base,
-            style,
-            lyrics,
-            duration_sec,
-            out_path,
-            vocal_language=vocal_language or "en",
-        )
-        return
-
-    env_cmd = os.environ.get("ACESTEP_CMD")
-    if env_cmd and not cmd:
-        cmd = env_cmd.split()
-
-    if cmd:
-        await _run_cmd(cmd, style, lyrics, duration_sec, out_path)
-        return
-
-    home = os.environ.get("ACESTEP_HOME")
-    if home:
-        script = Path(home) / "generate.py"
-        if script.is_file():
-            py = os.environ.get("ACESTEP_PYTHON", "python")
-            await _run_cmd(
-                [
-                    py,
-                    str(script),
-                    "--prompt",
-                    style,
-                    "--lyrics",
-                    lyrics or "",
-                    "--duration",
-                    str(duration_sec),
-                    "--output",
-                    str(out_path),
-                ],
-                style,
-                lyrics,
-                duration_sec,
-                out_path,
-                already_built=True,
-            )
-            return
-
-    raise RuntimeError(
-        "ACE-Step API not reachable at "
-        f"{base}. Install + start with:\n"
-        "  bash scripts/install_acestep.sh\n"
-        "  bash scripts/start_acestep_api.sh\n"
-        "Or set ACESTEP_MOCK=1 for placeholder music."
+        "ACE-Step API not ready. Install: bash scripts/install_acestep.sh "
+        "then: bash scripts/start_acestep_api.sh",
     )
 
 
@@ -152,6 +55,44 @@ async def _api_reachable(base: str) -> bool:
         return False
 
 
+def _thinking_default() -> bool:
+    # Default OFF: ACE "thinking" loads a second GPU model (5Hz LM) and often OOMs
+    # when DiT already holds VRAM. Set ACESTEP_THINKING=1 if you have free VRAM.
+    return os.environ.get("ACESTEP_THINKING", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _format_task_failure(item: dict) -> str:
+    """Pull a readable reason out of ACE-Step failure payloads."""
+    parts: list[str] = []
+    for key in ("progress_text", "error", "message", "detail"):
+        val = item.get(key)
+        if val:
+            parts.append(str(val))
+    result = item.get("result")
+    if isinstance(result, str) and result:
+        try:
+            parsed = json.loads(result)
+            if isinstance(parsed, list) and parsed:
+                parsed = parsed[0]
+            if isinstance(parsed, dict):
+                for key in ("error", "message", "progress_text", "stage"):
+                    if parsed.get(key):
+                        parts.append(str(parsed[key]))
+        except json.JSONDecodeError:
+            parts.append(result[:400])
+    text = " | ".join(parts) if parts else repr(item)[:500]
+    if "out of memory" in text.lower() or "oom" in text.lower():
+        text += (
+            " — GPU full. DiT-only mode (thinking=false) is safer; free VRAM "
+            "(stop other GPU apps / keep Ollama on CPU) or set ACESTEP_THINKING=0."
+        )
+    return text[:900]
+
+
 async def _generate_via_api(
     base: str,
     style: str,
@@ -160,6 +101,7 @@ async def _generate_via_api(
     out_path: Path,
     *,
     vocal_language: str = "en",
+    thinking: bool | None = None,
 ) -> None:
     """
     ACE-Step 1.5 async REST flow:
@@ -168,13 +110,9 @@ async def _generate_via_api(
       GET  /v1/audio?path=... → file
     """
     duration = max(10, min(int(duration_sec), 600))
-    # RTX 4090: turbo is fast/high quality; thinking improves structure
-    thinking = os.environ.get("ACESTEP_THINKING", "true").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
+    use_thinking = _thinking_default() if thinking is None else thinking
     vlang = (vocal_language or "en").strip().lower() or "en"
+    # When thinking is off, also skip CoT helpers that need the 5Hz LM
     payload = {
         "prompt": style,
         "caption": style,
@@ -183,7 +121,10 @@ async def _generate_via_api(
         "audio_duration": float(duration),
         "duration": float(duration),
         "audio_format": "wav",
-        "thinking": thinking,
+        "thinking": use_thinking,
+        "use_cot_caption": use_thinking,
+        "use_cot_language": use_thinking,
+        "use_format": False,
         "inference_steps": int(os.environ.get("ACESTEP_STEPS", "8")),
         "batch_size": 1,
         "use_random_seed": True,
@@ -192,10 +133,10 @@ async def _generate_via_api(
     }
 
     log.info(
-        "ACE-Step API generate duration=%ss lang=%s thinking=%s prompt=%.80s…",
+        "  [ace]  submit job duration=%ss lang=%s thinking=%s prompt=%.80s…",
         duration,
         vlang,
-        thinking,
+        use_thinking,
         style,
     )
 
@@ -229,10 +170,16 @@ async def _generate_via_api(
             status = item.get("status")
             # status may be int or string early on
             if status in (0, "0", "queued", "running") or status is None:
+                # Log progress occasionally
+                prog = item.get("progress") or item.get("progress_text")
+                if prog and int(time.time()) % 15 == 0:
+                    log.info("  [ace]  task %s progress: %s", task_id[:8], prog)
                 await asyncio.sleep(1.5)
                 continue
             if status in (2, "2", "failed"):
-                raise RuntimeError(f"ACE-Step task failed: {item!r}"[:800])
+                raise RuntimeError(
+                    f"ACE-Step task failed: {_format_task_failure(item)}"
+                )
             if status in (1, "1", "succeeded"):
                 file_url = _extract_file_url(item)
                 break
@@ -247,7 +194,69 @@ async def _generate_via_api(
 
     if not out_path.is_file() or out_path.stat().st_size < 1000:
         raise RuntimeError(f"ACE-Step did not write audio to {out_path}")
-    log.info("ACE-Step wrote %s (%s bytes)", out_path, out_path.stat().st_size)
+    log.info(
+        "  [ace]  audio ready %s (%s bytes)",
+        out_path.name,
+        out_path.stat().st_size,
+    )
+
+
+async def generate_song(
+    style: str,
+    lyrics: str,
+    duration_sec: int,
+    out_path: Path,
+    *,
+    api_url: str | None = None,
+    vocal_language: str = "en",
+) -> None:
+    """Generate a song via the ACE-Step 1.5 REST API (real music only)."""
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    base = _api_base(api_url)
+    if not await _api_reachable(base):
+        raise RuntimeError(
+            "ACE-Step API not reachable at "
+            f"{base}. Install + start with:\n"
+            "  bash scripts/install_acestep.sh\n"
+            "  bash scripts/start_acestep_api.sh"
+        )
+
+    try:
+        await _generate_via_api(
+            base,
+            style,
+            lyrics,
+            duration_sec,
+            out_path,
+            vocal_language=vocal_language or "en",
+        )
+    except RuntimeError as exc:
+        msg = str(exc).lower()
+        # If thinking/LM path OOMs or fails, retry pure DiT text2music once
+        if _thinking_default() and (
+            "out of memory" in msg
+            or "oom" in msg
+            or "5hz lm" in msg
+            or "lm init" in msg
+            or "thinking" in msg
+        ):
+            log.warning(
+                "  [ace]  failed with thinking/LM (%s); retry DiT-only (thinking=false)…",
+                str(exc)[:200],
+            )
+            await _generate_via_api(
+                base,
+                style,
+                lyrics,
+                duration_sec,
+                out_path,
+                vocal_language=vocal_language or "en",
+                thinking=False,
+            )
+            return
+        raise
 
 
 def _extract_file_url(item: dict) -> str | None:
@@ -330,66 +339,3 @@ def _looks_like_wav(path: Path) -> bool:
         return False
 
 
-async def _run_cmd(
-    cmd: list[str],
-    style: str,
-    lyrics: str,
-    duration_sec: int,
-    out_path: Path,
-    *,
-    already_built: bool = False,
-) -> None:
-    if already_built:
-        full = cmd
-    else:
-        full = [
-            *cmd,
-            "--prompt",
-            style,
-            "--lyrics",
-            lyrics or "",
-            "--duration",
-            str(duration_sec),
-            "--output",
-            str(out_path),
-        ]
-    log.info("Running ACE-Step: %s", " ".join(full[:6]) + "…")
-    proc = await asyncio.create_subprocess_exec(
-        *full,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    if proc.returncode != 0:
-        err = (stderr or stdout or b"").decode("utf-8", errors="replace")[-2000:]
-        raise RuntimeError(f"ACE-Step failed (code {proc.returncode}): {err}")
-    if not out_path.is_file() or out_path.stat().st_size < 1000:
-        raise RuntimeError(f"ACE-Step did not write audio to {out_path}")
-
-
-def _write_mock_song(out_path: Path, duration_sec: int, style: str) -> None:
-    """Audible placeholder when ACE-Step API is not running."""
-    sr = 44100
-    n = int(sr * duration_sec)
-    t = np.arange(n, dtype=np.float64) / sr
-    seed = sum(ord(c) for c in (style or "x"))
-    root = 196.0 + (seed % 12) * 2.0
-    bpm = 120.0
-    beat = 60.0 / bpm
-    step = beat / 2.0
-    degrees = [0, 4, 7, 12, 7, 4, 0, -5]
-    freqs = [root * (2 ** (d / 12.0)) for d in degrees]
-    idx = (t / step).astype(int) % len(freqs)
-    f_arr = np.take(np.array(freqs), idx)
-    phase = 2 * np.pi * f_arr * t
-    tone = 0.28 * np.sin(phase) + 0.10 * np.sin(2 * phase)
-    beat_pos = (t % beat) / beat
-    kick = 0.40 * np.exp(-beat_pos * 18.0) * np.sin(2 * np.pi * 55 * t)
-    wave = tone + kick
-    env = np.minimum(1.0, t / 0.05) * np.minimum(1.0, (duration_sec - t) / 0.3)
-    wave = (wave * env * 0.55).astype(np.float32)
-    peak = float(np.max(np.abs(wave))) or 1.0
-    if peak > 0.95:
-        wave = wave * (0.95 / peak)
-    stereo = np.stack([wave, wave * 0.97], axis=1)
-    sf.write(str(out_path), stereo, sr)

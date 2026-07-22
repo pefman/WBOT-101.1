@@ -54,7 +54,7 @@ async def _fake_talk(station, out_dir, **kwargs):
     )
 
 
-async def _fake_song(station, genres, out_dir):
+async def _fake_song(station, genres, out_dir, **_kwargs):
     await asyncio.sleep(0.05)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

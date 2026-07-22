@@ -1,9 +1,23 @@
 id: blues
 name: Blues
 major: Blues
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  blues, classic blues, soulful, raw, electric guitar, slide guitar, harmonica, upright bass, drums, male vocals, raspy, call and response
 style_prompt: >
-  Blues: expressive guitar or piano, shuffle or slow groove, soulful vocal, bass and drums in the pocket, 12-bar or blues-form feel without rigid cliché overload, raw emotion, ~70–100 BPM, warm analog-leaning mix.
-lyric_style: Heartache, resilience, everyday struggle, call-and-response feel, plainspoken poetry
-dj_tone: warm rootsy host
-bpm: 78
+  blues, classic blues, soulful, raw, electric guitar, slide guitar, harmonica, upright bass, drums, male vocals, raspy, call and response
+lyric_style: >
+  Struggle, longing, call-and-response hooks; short sung lines
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Verse]
+  [Chorus]
+  [Guitar Solo]
+  [Chorus]
+  [Outro]
+dj_tone: warm late-night host who knows the blues
+bpm: 80
 duration_sec: 165

@@ -1,0 +1,23 @@
+id: gospel
+name: Gospel
+major: Gospel
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  gospel, contemporary gospel, uplifting, soulful, choir, organ, piano, electric bass, drums, powerful vocals, call and response, emotional
+style_prompt: >
+  gospel, contemporary gospel, uplifting, soulful, choir, organ, piano, electric bass, drums, powerful vocals, call and response, emotional
+lyric_style: >
+  Testimony and praise; big uplifting hooks
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Verse]
+  [Chorus]
+  [Bridge]
+  [Final Chorus]
+  [Outro]
+dj_tone: uplifting Sunday host
+bpm: 90
+duration_sec: 165

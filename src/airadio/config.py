@@ -85,12 +85,17 @@ def load_djs(path: Path | None = None) -> tuple[str, dict[str, DJ]]:
     djs: dict[str, DJ] = {}
     for did, body in (raw.get("djs") or {}).items():
         body = body or {}
+        samples_raw = body.get("voice_samples") or []
+        samples: list[str] = []
+        if isinstance(samples_raw, list):
+            samples = [str(s).strip() for s in samples_raw if str(s).strip()]
         djs[str(did)] = DJ(
             id=str(did),
             name=str(body.get("name") or did).strip(),
             blurb=str(body.get("blurb") or "").strip(),
             voice=str(body.get("voice") or "bm_george").strip(),
             personality=str(body.get("personality") or "").strip(),
+            voice_samples=tuple(samples),
         )
     if not djs:
         djs["rex"] = DJ(
@@ -169,15 +174,24 @@ def load_genres(genres_dir: Path | None = None) -> dict[str, Genre]:
     for path in sorted(genres_dir.glob("*.yaml")):
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         gid = str(raw.get("id") or path.stem)
+        style = str(raw.get("style_prompt") or "").strip()
+        tags = str(raw.get("tags") or "").strip()
+        # Prefer explicit ACE tags; fall back to style_prompt for older packs
+        if not tags and style:
+            tags = style.replace("\n", " ").strip()
+        if not style and tags:
+            style = tags
         genres[gid] = Genre(
             id=gid,
             name=str(raw.get("name") or gid),
-            style_prompt=str(raw.get("style_prompt") or "").strip(),
+            style_prompt=style,
             lyric_style=str(raw.get("lyric_style") or "").strip(),
             dj_tone=str(raw.get("dj_tone") or "").strip(),
             bpm=int(raw.get("bpm") or 100),
             duration_sec=int(raw.get("duration_sec") or 75),
             major=str(raw.get("major") or "").strip(),
+            tags=tags,
+            lyrics_skeleton=str(raw.get("lyrics_skeleton") or "").strip(),
         )
     if not genres:
         raise ValueError(f"No genre YAML files in {genres_dir}")
@@ -187,8 +201,11 @@ def load_genres(genres_dir: Path | None = None) -> dict[str, Genre]:
 def resolve_enabled_genres(
     enabled: list[str], all_genres: dict[str, Genre]
 ) -> list[str]:
+    # "all" / empty → default freeform Radio pack (random real genre per song)
     if not enabled or enabled == ["all"] or (len(enabled) == 1 and enabled[0] == "all"):
-        return list(all_genres.keys())
+        if "radio" in all_genres:
+            return ["radio"]
+        return [g for g in all_genres if g != "radio"] or list(all_genres.keys())
     unknown = [g for g in enabled if g not in all_genres]
     if unknown:
         raise ValueError(f"Unknown genre ids in station config: {unknown}")
@@ -214,10 +231,6 @@ def load_station(
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "segments").mkdir(parents=True, exist_ok=True)
     (data_dir / "hls").mkdir(parents=True, exist_ok=True)
-
-    acestep_cmd = raw.get("acestep_cmd")
-    if acestep_cmd is not None and not isinstance(acestep_cmd, list):
-        raise TypeError("acestep_cmd must be a list of strings or null")
 
     # name: "git" / "auto" / empty → repository directory name
     name_raw = raw.get("name")
@@ -261,7 +274,6 @@ def load_station(
         song_duration_sec=int(raw.get("song_duration_sec") or 165),
         talk_max_words=int(raw.get("talk_max_words") or 100),
         data_dir=data_dir,
-        acestep_cmd=list(acestep_cmd) if acestep_cmd else None,
         config_dir=path.parent,
         news_bit_chance=news_chance,
         news_angles=news_angles or None,
@@ -274,6 +286,33 @@ def load_station(
             raw.get("crossfade_bed_gain")
             if raw.get("crossfade_bed_gain") is not None
             else 0.42
+        ),
+        outro_crossfade_sec=float(
+            raw.get("outro_crossfade_sec")
+            if raw.get("outro_crossfade_sec") is not None
+            else 6.0
+        ),
+        outro_bed_gain=float(
+            raw.get("outro_bed_gain")
+            if raw.get("outro_bed_gain") is not None
+            else 0.32
+        ),
+        library_max_songs=int(raw.get("library_max_songs") or 40),
+        reair_chance=float(
+            raw.get("reair_chance") if raw.get("reair_chance") is not None else 0.28
+        ),
+        segment_max_age_hours=float(
+            raw.get("segment_max_age_hours")
+            if raw.get("segment_max_age_hours") is not None
+            else 48.0
+        ),
+        segment_max_files=int(raw.get("segment_max_files") or 200),
+        cover_backend=str(raw.get("cover_backend") or "sd_turbo").strip().lower(),
+        cover_sd_steps=int(raw.get("cover_sd_steps") or 2),
+        cover_auto_download=bool(
+            raw.get("cover_auto_download")
+            if raw.get("cover_auto_download") is not None
+            else True
         ),
     )
     return station, genres

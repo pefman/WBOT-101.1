@@ -1,9 +1,23 @@
 id: rock
 name: Rock
 major: Rock
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  rock, alternative rock, energetic, driving, electric guitars, bass, drums, powerful vocals, raw, polished, 110-140 bpm
 style_prompt: >
-  Classic contemporary rock band energy: electric guitars with drive, solid backbeat drums, melodic bass, confident lead vocal, verse grit into bigger chorus, live-room presence, ~115–130 BPM, full midrange guitar stack without metal extremity.
-lyric_style: Direct emotional lines, anthemic chorus, personal or road-life themes, clear rhyme without novelty
-dj_tone: warm rock-radio host with a grin
-bpm: 120
+  rock, alternative rock, energetic, driving, electric guitars, bass, drums, powerful vocals, raw, polished, 110-140 bpm
+lyric_style: >
+  Story or attitude lines; big sing-along hooks
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Verse]
+  [Chorus]
+  [Bridge]
+  [Chorus]
+  [Outro]
+dj_tone: classic FM rock host
+bpm: 125
 duration_sec: 165

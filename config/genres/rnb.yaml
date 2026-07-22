@@ -1,0 +1,23 @@
+id: rnb
+name: R&B
+major: R&B
+# ACE-Step caption: short comma tags only (never guide prose)
+tags: >
+  R&B, contemporary R&B, smooth, sensual, neo-soul, electric piano, Rhodes, smooth bass, soft drums, silky vocals, warm, polished
+style_prompt: >
+  R&B, contemporary R&B, smooth, sensual, neo-soul, electric piano, Rhodes, smooth bass, soft drums, silky vocals, warm, polished
+lyric_style: >
+  Intimate flowing lines; smooth emotional hooks
+# Section headers only — LLM writes the sung lines
+lyrics_skeleton: |
+  [Intro]
+  [Verse]
+  [Chorus]
+  [Verse]
+  [Chorus]
+  [Bridge]
+  [Chorus]
+  [Outro]
+dj_tone: smooth late-night host
+bpm: 85
+duration_sec: 165
