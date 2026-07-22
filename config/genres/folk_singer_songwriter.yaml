@@ -1,0 +1,9 @@
+id: folk_singer_songwriter
+name: Folk / Singer-Songwriter
+major: Folk
+style_prompt: >
+  Folk / singer-songwriter: acoustic guitar or piano focus, intimate vocal, light percussion or none, honest room ambience, subtle harmony, narrative clarity, ~85–110 BPM, natural dry-to-warm mix.
+lyric_style: Personal storytelling, concrete images, confessional or observational tone, gentle chorus or refrain
+dj_tone: quiet intimate host
+bpm: 96
+duration_sec: 165

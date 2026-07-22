@@ -1,0 +1,9 @@
+id: melodic_progressive_metal
+name: Melodic Progressive Metal
+major: Metal
+style_prompt: >
+  Melodic progressive metal: intricate riffs and time-feel shifts, soaring melodic leads, dynamic soft–heavy contrast, polished modern production, keyboard or atmospheric layers optional, long-form section drama, ~110–150 BPM varying sections, detailed clear mix.
+lyric_style: Conceptual or emotional storytelling, progressive arcs, melodic chorus, thoughtful metaphors
+dj_tone: thoughtful progressive-metal host
+bpm: 130
+duration_sec: 165

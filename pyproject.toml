@@ -16,6 +16,7 @@ dependencies = [
   "pyyaml>=6.0",
   "soundfile>=0.12.0",
   "numpy>=1.26.0",
+  "Pillow>=10.0.0",
   # Everything below installs into the project .venv only (no system packages)
   "kokoro>=0.7.0",
   "torch",

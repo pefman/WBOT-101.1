@@ -1,0 +1,9 @@
+id: hiphop_rap
+name: Hip-hop / Rap
+major: Hip-Hop
+style_prompt: >
+  Modern hip-hop / rap: strong pocket drums (kick–snare or trap-leaning hats), deep bass or 808, sample or synth atmosphere, clear rap or melodic rap delivery, verse–hook form, head-nod groove, ~80–100 BPM (or double-time hats), clean low-end focused mix.
+lyric_style: Confident bars, clever internal rhyme, hooky chorus or ad-lib hooks, street or introspective themes, radio-safe language
+dj_tone: confident late-night hip-hop host
+bpm: 92
+duration_sec: 165

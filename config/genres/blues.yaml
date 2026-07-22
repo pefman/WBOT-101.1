@@ -1,0 +1,9 @@
+id: blues
+name: Blues
+major: Blues
+style_prompt: >
+  Blues: expressive guitar or piano, shuffle or slow groove, soulful vocal, bass and drums in the pocket, 12-bar or blues-form feel without rigid cliché overload, raw emotion, ~70–100 BPM, warm analog-leaning mix.
+lyric_style: Heartache, resilience, everyday struggle, call-and-response feel, plainspoken poetry
+dj_tone: warm rootsy host
+bpm: 78
+duration_sec: 165

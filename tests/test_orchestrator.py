@@ -29,6 +29,7 @@ def _station(tmp: Path) -> StationConfig:
         song_duration_sec=30,
         talk_max_words=40,
         data_dir=tmp,
+        news_bit_chance=0.0,
     )
 
 
@@ -41,12 +42,15 @@ async def _fake_talk(station, out_dir, **kwargs):
     return Segment(
         id=str(time.time_ns()),
         kind="talk",
-        title="On air: H",
+        title=f"On air: {station.host_name}",
         genre_id=None,
         text="hi",
         audio_path=p,
         duration_ms=150,
         created_at=time.time(),
+        host_name=station.host_name,
+        voice_id=station.kokoro_voice,
+        generation_id=kwargs.get("generation_id"),
     )
 
 

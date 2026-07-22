@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from airadio.models_types import Genre, StationConfig
+from airadio.models_types import DJ, Genre, Mood, StationConfig
 
 # Repo root: .../WBOT-101.1 (parent of src/)
 _DEFAULT_ROOT = Path(__file__).resolve().parents[2]
@@ -13,6 +14,24 @@ _DEFAULT_ROOT = Path(__file__).resolve().parents[2]
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def git_repo_name(root: Path | None = None) -> str:
+    """Station call letters = git repository directory name (e.g. WBOT-101.1)."""
+    root = root or _repo_root()
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return Path(out.stdout.strip()).name
+    except Exception:  # noqa: BLE001
+        pass
+    return root.name
 
 
 def default_config_dir() -> Path:
@@ -25,6 +44,120 @@ def default_station_path() -> Path:
 
 def default_genres_dir() -> Path:
     return default_config_dir() / "genres"
+
+
+def default_news_angles_path() -> Path:
+    return default_config_dir() / "news_angles.yaml"
+
+
+def load_news_angles(path: Path | None = None) -> list[str]:
+    path = path or default_news_angles_path()
+    if not path.is_file():
+        return []
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    angles = raw.get("angles") or []
+    return [str(a).strip() for a in angles if str(a).strip()]
+
+
+def default_moods_path() -> Path:
+    return default_config_dir() / "moods.yaml"
+
+
+def default_djs_path() -> Path:
+    return default_config_dir() / "djs.yaml"
+
+
+def load_djs(path: Path | None = None) -> tuple[str, dict[str, DJ]]:
+    """Return (default_dj_id, djs_by_id)."""
+    path = path or default_djs_path()
+    if not path.is_file():
+        dj = DJ(
+            id="rex",
+            name="Rex",
+            blurb="Default host",
+            voice="bm_george",
+            personality="Smooth classic FM host.",
+        )
+        return "rex", {"rex": dj}
+
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    default_id = str(raw.get("default") or "rex")
+    djs: dict[str, DJ] = {}
+    for did, body in (raw.get("djs") or {}).items():
+        body = body or {}
+        djs[str(did)] = DJ(
+            id=str(did),
+            name=str(body.get("name") or did).strip(),
+            blurb=str(body.get("blurb") or "").strip(),
+            voice=str(body.get("voice") or "bm_george").strip(),
+            personality=str(body.get("personality") or "").strip(),
+        )
+    if not djs:
+        djs["rex"] = DJ(
+            id="rex",
+            name="Rex",
+            blurb="Default host",
+            voice="bm_george",
+            personality="Smooth classic FM host.",
+        )
+        default_id = "rex"
+    if default_id not in djs:
+        default_id = next(iter(djs))
+    return default_id, djs
+
+
+def build_system_prompt(
+    template: str,
+    *,
+    station_name: str,
+    host_name: str,
+    personality: str,
+) -> str:
+    text = (template or "").strip()
+    text = text.replace("{station_name}", station_name)
+    text = text.replace("{host_name}", host_name)
+    text = text.replace("{personality}", personality.strip() or "Warm radio host.")
+    return text
+
+
+def load_moods(
+    path: Path | None = None,
+    *,
+    all_genre_ids: list[str] | None = None,
+) -> tuple[str, dict[str, Mood]]:
+    """Return (default_mood_id, moods_by_id)."""
+    path = path or default_moods_path()
+    if not path.is_file():
+        # Fallback: single eclectic mood
+        ids = tuple(all_genre_ids or [])
+        mood = Mood(id="eclectic", label="Eclectic", blurb="All genres", genre_ids=ids)
+        return "eclectic", {"eclectic": mood}
+
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    default_id = str(raw.get("default") or "eclectic")
+    moods: dict[str, Mood] = {}
+    for mid, body in (raw.get("moods") or {}).items():
+        body = body or {}
+        gids = body.get("genres") or ["all"]
+        if gids == ["all"] or gids == "all":
+            resolved = tuple(all_genre_ids or [])
+        else:
+            resolved = tuple(str(g) for g in gids)
+        moods[str(mid)] = Mood(
+            id=str(mid),
+            label=str(body.get("label") or mid),
+            blurb=str(body.get("blurb") or ""),
+            genre_ids=resolved,
+        )
+    if not moods:
+        ids = tuple(all_genre_ids or [])
+        moods["eclectic"] = Mood(
+            id="eclectic", label="Eclectic", blurb="All genres", genre_ids=ids
+        )
+        default_id = "eclectic"
+    if default_id not in moods:
+        default_id = next(iter(moods))
+    return default_id, moods
 
 
 def load_genres(genres_dir: Path | None = None) -> dict[str, Genre]:
@@ -44,6 +177,7 @@ def load_genres(genres_dir: Path | None = None) -> dict[str, Genre]:
             dj_tone=str(raw.get("dj_tone") or "").strip(),
             bpm=int(raw.get("bpm") or 100),
             duration_sec=int(raw.get("duration_sec") or 75),
+            major=str(raw.get("major") or "").strip(),
         )
     if not genres:
         raise ValueError(f"No genre YAML files in {genres_dir}")
@@ -85,23 +219,61 @@ def load_station(
     if acestep_cmd is not None and not isinstance(acestep_cmd, list):
         raise TypeError("acestep_cmd must be a list of strings or null")
 
+    # name: "git" / "auto" / empty → repository directory name
+    name_raw = raw.get("name")
+    if name_raw is None or str(name_raw).strip().lower() in ("", "git", "auto", "repo"):
+        station_name = git_repo_name()
+    else:
+        station_name = str(name_raw).strip()
+
+    system_template = str(raw.get("system_prompt") or "").strip()
+    # host_name / voice may be overridden by default DJ in main via apply_dj
+    host_name = str(raw.get("host_name") or "Host")
+    system_prompt = build_system_prompt(
+        system_template,
+        station_name=station_name,
+        host_name=host_name,
+        personality="",
+    )
+
+    news_chance = float(raw.get("news_bit_chance") if raw.get("news_bit_chance") is not None else 0.4)
+    news_chance = max(0.0, min(1.0, news_chance))
+
+    news_path = path.parent / "news_angles.yaml"
+    news_angles = load_news_angles(news_path if news_path.is_file() else None)
+
     station = StationConfig(
-        name=str(raw.get("name") or "AI Radio"),
-        host_name=str(raw.get("host_name") or "Host"),
-        system_prompt=str(raw.get("system_prompt") or "").strip(),
+        name=station_name,
+        host_name=host_name,
+        system_prompt=system_prompt,
         kokoro_voice=str(raw.get("kokoro_voice") or "af_heart"),
         ollama_model=str(raw.get("ollama_model") or "qwen2.5:7b"),
         ollama_base_url=str(raw.get("ollama_base_url") or "http://127.0.0.1:11434").rstrip(
             "/"
         ),
+        ollama_auto_pull=bool(
+            raw.get("ollama_auto_pull") if raw.get("ollama_auto_pull") is not None else True
+        ),
         language=str(raw.get("language") or "en"),
         enabled_genres=enabled,
         buffer_min=int(raw.get("buffer_min") or 2),
         buffer_target=int(raw.get("buffer_target") or 4),
-        song_duration_sec=int(raw.get("song_duration_sec") or 75),
+        song_duration_sec=int(raw.get("song_duration_sec") or 165),
         talk_max_words=int(raw.get("talk_max_words") or 100),
         data_dir=data_dir,
         acestep_cmd=list(acestep_cmd) if acestep_cmd else None,
         config_dir=path.parent,
+        news_bit_chance=news_chance,
+        news_angles=news_angles or None,
+        system_prompt_template=system_template,
+        default_dj=str(raw.get("default_dj") or "rex"),
+        crossfade_sec=float(
+            raw.get("crossfade_sec") if raw.get("crossfade_sec") is not None else 3.0
+        ),
+        crossfade_bed_gain=float(
+            raw.get("crossfade_bed_gain")
+            if raw.get("crossfade_bed_gain") is not None
+            else 0.42
+        ),
     )
     return station, genres

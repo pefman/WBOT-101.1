@@ -1,0 +1,111 @@
+# Station moods → genre packs (ids must match config/genres/*.yaml)
+default: late_night
+
+moods:
+  late_night:
+    label: Late Night
+    blurb: Soft, atmospheric, after-hours
+    genres:
+      - rnb_soul
+      - jazz
+      - blues
+      - indie_rock_pop
+      - classical
+      - folk_singer_songwriter
+
+  chill:
+    label: Chill
+    blurb: Unhurried, warm, easy listening
+    genres:
+      - jazz
+      - rnb_soul
+      - folk_singer_songwriter
+      - classical
+      - reggae
+      - indie_rock_pop
+      - blues
+
+  upbeat:
+    label: Upbeat
+    blurb: Energy, dance floors, road-trip volume
+    genres:
+      - pop
+      - edm
+      - techno_house
+      - latin
+      - kpop
+      - punk_rock
+      - rock
+
+  dark:
+    label: Dark Energy
+    blurb: Grit, neon, late drive intensity
+    genres:
+      - heavy_metal
+      - melodic_progressive_metal
+      - hiphop_rap
+      - techno_house
+      - alternative_rock
+      - edm
+
+  organic:
+    label: Organic
+    blurb: Acoustic, live-room, human touch
+    genres:
+      - country
+      - folk_singer_songwriter
+      - blues
+      - jazz
+      - gospel_christian
+      - indie_rock_pop
+
+  electronic:
+    label: Electronic
+    blurb: Synths, pulses, machine soul
+    genres:
+      - edm
+      - techno_house
+      - pop
+      - kpop
+
+  pop:
+    label: Pop
+    blurb: Hooks, gloss, radio candy
+    genres:
+      - pop
+      - kpop
+      - indie_rock_pop
+      - rnb_soul
+      - latin
+
+  rock:
+    label: Rock
+    blurb: Guitars, drive, live-band power
+    genres:
+      - rock
+      - alternative_rock
+      - indie_rock_pop
+      - punk_rock
+      - heavy_metal
+      - melodic_progressive_metal
+
+  hiphop:
+    label: Hip-Hop
+    blurb: Bars, 808s, head-nod nights
+    genres:
+      - hiphop_rap
+      - rnb_soul
+      - pop
+
+  classical:
+    label: Classical
+    blurb: Orchestra, piano, concert hall calm
+    genres:
+      - classical
+      - folk_singer_songwriter
+      - gospel_christian
+
+  eclectic:
+    label: Eclectic
+    blurb: Everything on the station — full mix
+    genres: [all]

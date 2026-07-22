@@ -1,0 +1,9 @@
+id: rock
+name: Rock
+major: Rock
+style_prompt: >
+  Classic contemporary rock band energy: electric guitars with drive, solid backbeat drums, melodic bass, confident lead vocal, verse grit into bigger chorus, live-room presence, ~115–130 BPM, full midrange guitar stack without metal extremity.
+lyric_style: Direct emotional lines, anthemic chorus, personal or road-life themes, clear rhyme without novelty
+dj_tone: warm rock-radio host with a grin
+bpm: 120
+duration_sec: 165

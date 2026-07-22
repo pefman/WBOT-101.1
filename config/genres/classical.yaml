@@ -1,0 +1,9 @@
+id: classical
+name: Classical Music
+major: Classical
+style_prompt: >
+  Classical: orchestral or solo piano/strings character, clear thematic development, dynamic phrasing, concert-hall space, no pop backbeat required, lyrical melody lines, expressive tempo flexibility, refined acoustic mix.
+lyric_style: instrumental (no pop vocals); if any vocalise, pure classical line without contemporary pop lyrics
+dj_tone: refined calm host
+bpm: 90
+duration_sec: 165

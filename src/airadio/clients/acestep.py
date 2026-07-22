@@ -1,39 +1,65 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import shutil
+import subprocess
+import time
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
+import httpx
 import numpy as np
 import soundfile as sf
 
 log = logging.getLogger(__name__)
 
+DEFAULT_API_URL = "http://127.0.0.1:8001"
+
+
+def _api_base(url: str | None = None) -> str:
+    return (url or os.environ.get("ACESTEP_API_URL") or DEFAULT_API_URL).rstrip("/")
+
 
 def acestep_available(cmd: list[str] | None = None) -> tuple[bool, str]:
     if os.environ.get("ACESTEP_MOCK") == "1":
         return True, "ACESTEP_MOCK=1 (synthetic audio)"
+
+    # Prefer live ACE-Step REST API (project-local vendor install)
+    base = _api_base()
+    try:
+        r = httpx.get(f"{base}/health", timeout=2.0)
+        if r.status_code == 200:
+            return True, f"ACE-Step API at {base}"
+    except Exception:  # noqa: BLE001
+        pass
+
     if cmd:
         exe = cmd[0]
         if shutil.which(exe) or Path(exe).exists():
             return True, f"custom cmd: {' '.join(cmd)}"
         return False, f"acestep_cmd executable not found: {exe}"
+
     home = os.environ.get("ACESTEP_HOME")
     if home and Path(home).is_dir():
-        return True, f"ACESTEP_HOME={home}"
-    if shutil.which("acestep"):
-        return True, "acestep on PATH"
-    # Python module probe
-    try:
-        import importlib.util
+        return True, f"ACESTEP_HOME={home} (start API: scripts/start_acestep_api.sh)"
 
-        if importlib.util.find_spec("acestep") is not None:
-            return True, "python module acestep"
-    except Exception:  # noqa: BLE001
-        pass
-    return False, "ACE-Step not configured (set ACESTEP_HOME, acestep_cmd, or ACESTEP_MOCK=1)"
+    vendor = Path(__file__).resolve().parents[3] / "vendor" / "ACE-Step-1.5"
+    if vendor.is_dir():
+        return (
+            False,
+            f"ACE-Step cloned at {vendor} but API not running — "
+            "run: bash scripts/start_acestep_api.sh",
+        )
+
+    return (
+        False,
+        "ACE-Step not ready. Install: bash scripts/install_acestep.sh "
+        "then: bash scripts/start_acestep_api.sh "
+        "(or ACESTEP_MOCK=1 for placeholder music)",
+    )
 
 
 async def generate_song(
@@ -43,21 +69,35 @@ async def generate_song(
     out_path: Path,
     *,
     cmd: list[str] | None = None,
+    api_url: str | None = None,
+    vocal_language: str = "en",
 ) -> None:
     """
-    Generate a song WAV with ACE-Step 1.5 (Tier-4 friendly defaults for 8–12GB).
+    Generate a song file with ACE-Step 1.5.
 
-    Integration modes (first match wins):
-    1. ACESTEP_MOCK=1 → synthetic tone bed (dev/tests)
-    2. station acestep_cmd / ACESTEP_CMD → subprocess
-    3. ACESTEP_HOME → run upstream generate script if present
-    4. else raise with install instructions
+    Modes (first match wins):
+    1. ACESTEP_MOCK=1 → synthetic placeholder
+    2. ACE-Step REST API (ACESTEP_API_URL, default http://127.0.0.1:8001)
+    3. station acestep_cmd / ACESTEP_CMD subprocess
+    4. ACESTEP_HOME generate.py subprocess
     """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     if os.environ.get("ACESTEP_MOCK") == "1":
         await asyncio.to_thread(_write_mock_song, out_path, duration_sec, style)
+        return
+
+    base = _api_base(api_url)
+    if await _api_reachable(base):
+        await _generate_via_api(
+            base,
+            style,
+            lyrics,
+            duration_sec,
+            out_path,
+            vocal_language=vocal_language or "en",
+        )
         return
 
     env_cmd = os.environ.get("ACESTEP_CMD")
@@ -95,10 +135,199 @@ async def generate_song(
             return
 
     raise RuntimeError(
-        "ACE-Step not configured. Install ACE-Step 1.5 for 8–12GB VRAM (Tier 4: "
-        "0.6B LM, INT8, CPU+DiT offload), then set ACESTEP_HOME or station.yaml "
-        "acestep_cmd. For development without GPU music, export ACESTEP_MOCK=1."
+        "ACE-Step API not reachable at "
+        f"{base}. Install + start with:\n"
+        "  bash scripts/install_acestep.sh\n"
+        "  bash scripts/start_acestep_api.sh\n"
+        "Or set ACESTEP_MOCK=1 for placeholder music."
     )
+
+
+async def _api_reachable(base: str) -> bool:
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as client:
+            r = await client.get(f"{base}/health")
+            return r.status_code == 200
+    except Exception:  # noqa: BLE001
+        return False
+
+
+async def _generate_via_api(
+    base: str,
+    style: str,
+    lyrics: str,
+    duration_sec: int,
+    out_path: Path,
+    *,
+    vocal_language: str = "en",
+) -> None:
+    """
+    ACE-Step 1.5 async REST flow:
+      POST /release_task → task_id
+      POST /query_result until status 1/2
+      GET  /v1/audio?path=... → file
+    """
+    duration = max(10, min(int(duration_sec), 600))
+    # RTX 4090: turbo is fast/high quality; thinking improves structure
+    thinking = os.environ.get("ACESTEP_THINKING", "true").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    vlang = (vocal_language or "en").strip().lower() or "en"
+    payload = {
+        "prompt": style,
+        "caption": style,
+        "lyrics": lyrics or "",
+        "vocal_language": vlang,
+        "audio_duration": float(duration),
+        "duration": float(duration),
+        "audio_format": "wav",
+        "thinking": thinking,
+        "inference_steps": int(os.environ.get("ACESTEP_STEPS", "8")),
+        "batch_size": 1,
+        "use_random_seed": True,
+        "task_type": "text2music",
+        "model": os.environ.get("ACESTEP_DIT_MODEL", "acestep-v15-turbo"),
+    }
+
+    log.info(
+        "ACE-Step API generate duration=%ss lang=%s thinking=%s prompt=%.80s…",
+        duration,
+        vlang,
+        thinking,
+        style,
+    )
+
+    timeout = httpx.Timeout(30.0, read=120.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        r = await client.post(f"{base}/release_task", json=payload)
+        r.raise_for_status()
+        body = r.json()
+        data = body.get("data") if isinstance(body, dict) else body
+        if not isinstance(data, dict):
+            raise RuntimeError(f"Unexpected release_task response: {body!r}"[:500])
+        task_id = data.get("task_id")
+        if not task_id:
+            raise RuntimeError(f"No task_id in response: {body!r}"[:500])
+
+        # Poll for completion (music gen can take 10s–several minutes)
+        deadline = time.time() + float(os.environ.get("ACESTEP_TIMEOUT_SEC", "600"))
+        file_url: str | None = None
+        while time.time() < deadline:
+            qr = await client.post(
+                f"{base}/query_result",
+                json={"task_id_list": [task_id]},
+            )
+            qr.raise_for_status()
+            qbody = qr.json()
+            items = qbody.get("data") if isinstance(qbody, dict) else qbody
+            if not items:
+                await asyncio.sleep(1.5)
+                continue
+            item = items[0] if isinstance(items, list) else items
+            status = item.get("status")
+            # status may be int or string early on
+            if status in (0, "0", "queued", "running") or status is None:
+                await asyncio.sleep(1.5)
+                continue
+            if status in (2, "2", "failed"):
+                raise RuntimeError(f"ACE-Step task failed: {item!r}"[:800])
+            if status in (1, "1", "succeeded"):
+                file_url = _extract_file_url(item)
+                break
+            await asyncio.sleep(1.5)
+        else:
+            raise TimeoutError(f"ACE-Step task {task_id} timed out")
+
+        if not file_url:
+            raise RuntimeError(f"No audio file in ACE-Step result for {task_id}")
+
+        await _download_audio(client, base, file_url, out_path)
+
+    if not out_path.is_file() or out_path.stat().st_size < 1000:
+        raise RuntimeError(f"ACE-Step did not write audio to {out_path}")
+    log.info("ACE-Step wrote %s (%s bytes)", out_path, out_path.stat().st_size)
+
+
+def _extract_file_url(item: dict) -> str | None:
+    result = item.get("result")
+    if result is None:
+        return item.get("file")
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except json.JSONDecodeError:
+            return None
+    if isinstance(result, list) and result:
+        result = result[0]
+    if isinstance(result, dict):
+        return result.get("file") or result.get("path")
+    return None
+
+
+async def _download_audio(
+    client: httpx.AsyncClient, base: str, file_ref: str, out_path: Path
+) -> None:
+    """Download API audio (path URL or absolute path) and normalize to WAV."""
+    tmp = out_path.with_suffix(".download")
+
+    if file_ref.startswith("/v1/audio") or "path=" in file_ref:
+        url = file_ref if file_ref.startswith("http") else f"{base}{file_ref}"
+        async with client.stream("GET", url) as resp:
+            resp.raise_for_status()
+            with open(tmp, "wb") as f:
+                async for chunk in resp.aiter_bytes():
+                    f.write(chunk)
+    elif file_ref.startswith("http"):
+        async with client.stream("GET", file_ref) as resp:
+            resp.raise_for_status()
+            with open(tmp, "wb") as f:
+                async for chunk in resp.aiter_bytes():
+                    f.write(chunk)
+    else:
+        # Absolute path on API server (same machine)
+        src = Path(unquote(file_ref))
+        if not src.is_file():
+            # Try query param form path=
+            parsed = urlparse(file_ref)
+            raise RuntimeError(f"Audio path not found: {src} ({parsed})")
+        tmp.write_bytes(src.read_bytes())
+
+    # Convert to WAV if needed (API may return mp3)
+    if tmp.suffix.lower() in {".wav", ".wave"} or _looks_like_wav(tmp):
+        # Ensure standard wav via soundfile round-trip if possible
+        try:
+            data, sr = sf.read(str(tmp), always_2d=True)
+            sf.write(str(out_path), data, sr)
+            tmp.unlink(missing_ok=True)
+            return
+        except Exception:  # noqa: BLE001
+            tmp.replace(out_path)
+            return
+
+    from airadio.paths import bundled_ffmpeg
+
+    ff = bundled_ffmpeg()
+    conv = subprocess.run(
+        [ff, "-y", "-i", str(tmp), str(out_path.with_suffix(".wav"))],
+        capture_output=True,
+        text=True,
+    )
+    tmp.unlink(missing_ok=True)
+    if conv.returncode != 0:
+        raise RuntimeError(f"ffmpeg convert failed: {conv.stderr[-800:]}")
+    final = out_path.with_suffix(".wav")
+    if final != out_path:
+        final.replace(out_path)
+
+
+def _looks_like_wav(path: Path) -> bool:
+    try:
+        with open(path, "rb") as f:
+            return f.read(4) == b"RIFF"
+    except OSError:
+        return False
 
 
 async def _run_cmd(
@@ -139,19 +368,28 @@ async def _run_cmd(
 
 
 def _write_mock_song(out_path: Path, duration_sec: int, style: str) -> None:
-    """Pleasant placeholder chord drone for offline dev without ACE-Step."""
+    """Audible placeholder when ACE-Step API is not running."""
     sr = 44100
-    t = np.linspace(0, duration_sec, int(sr * duration_sec), endpoint=False)
-    # Hash style into slight pitch variation
-    base = 220.0 + (sum(ord(c) for c in style) % 80)
-    wave = (
-        0.25 * np.sin(2 * np.pi * base * t)
-        + 0.15 * np.sin(2 * np.pi * base * 1.5 * t)
-        + 0.10 * np.sin(2 * np.pi * base * 2 * t)
-    )
-    # Gentle amplitude envelope
-    env = np.minimum(1.0, t / 0.5) * np.minimum(1.0, (duration_sec - t) / 1.0)
-    wave = (wave * env * 0.4).astype(np.float32)
-    # Stereo
-    stereo = np.stack([wave, wave * 0.98], axis=1)
+    n = int(sr * duration_sec)
+    t = np.arange(n, dtype=np.float64) / sr
+    seed = sum(ord(c) for c in (style or "x"))
+    root = 196.0 + (seed % 12) * 2.0
+    bpm = 120.0
+    beat = 60.0 / bpm
+    step = beat / 2.0
+    degrees = [0, 4, 7, 12, 7, 4, 0, -5]
+    freqs = [root * (2 ** (d / 12.0)) for d in degrees]
+    idx = (t / step).astype(int) % len(freqs)
+    f_arr = np.take(np.array(freqs), idx)
+    phase = 2 * np.pi * f_arr * t
+    tone = 0.28 * np.sin(phase) + 0.10 * np.sin(2 * phase)
+    beat_pos = (t % beat) / beat
+    kick = 0.40 * np.exp(-beat_pos * 18.0) * np.sin(2 * np.pi * 55 * t)
+    wave = tone + kick
+    env = np.minimum(1.0, t / 0.05) * np.minimum(1.0, (duration_sec - t) / 0.3)
+    wave = (wave * env * 0.55).astype(np.float32)
+    peak = float(np.max(np.abs(wave))) or 1.0
+    if peak > 0.95:
+        wave = wave * (0.95 / peak)
+    stereo = np.stack([wave, wave * 0.97], axis=1)
     sf.write(str(out_path), stereo, sr)

@@ -3,47 +3,142 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Radio</title>
+    <title>WBOT-101.1</title>
     <link rel="stylesheet" href="/static/style.css" />
     <script src="/static/hls.min.js"></script>
   </head>
   <body>
-    <div class="shell">
-      <header class="header">
-        <div class="brand">
-          <span class="dot" id="live-dot"></span>
-          <h1 id="station-name">AI Radio</h1>
+    <div class="app">
+      <header>
+        <div class="logo" id="station-logo">
+          <span id="station-name-main">WBOT</span>
+          <span id="station-name-accent">101.1</span>
         </div>
-        <p class="host" id="host-line">Local · self-contained · offline</p>
+        <div class="live">
+          <div class="dot" id="live-dot"></div>
+          <span id="live-label">OFF AIR · LOCAL</span>
+        </div>
       </header>
 
-      <section class="now">
-        <div class="badge" id="kind-badge">—</div>
-        <h2 id="title">Press Play to go on air</h2>
-        <p class="meta" id="meta-line"></p>
-        <p class="status" id="status-line">Stopped</p>
+      <div class="grid">
+        <section class="now">
+          <div class="label">Currently Playing</div>
+
+          <div class="current">
+            <div class="cover" id="cover" aria-hidden="true">
+              <span class="cover-glyph" id="cover-glyph">◉</span>
+              <img class="cover-img" id="cover-img" alt="" hidden />
+            </div>
+
+            <div class="song">
+              <div class="kind" id="kind-badge">—</div>
+              <h1 id="title">Press Play to go on air</h1>
+              <div class="artist" id="meta-line">Local · self-contained · offline</div>
+              <div class="status" id="status-line">Stopped</div>
+
+              <div class="wave" id="wave" aria-hidden="true">
+                <div></div><div></div><div></div><div></div>
+                <div></div><div></div><div></div><div></div>
+                <div></div><div></div><div></div><div></div>
+              </div>
+
+              <div class="controls">
+                <button type="button" id="btn-play">Play</button>
+                <button type="button" id="btn-stop">Stop</button>
+                <label class="vol">
+                  <span>Vol</span>
+                  <input
+                    type="range"
+                    id="volume"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.85"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="panel">
+          <div class="label">Coming Right Up</div>
+          <div class="upnext" id="queue-list"></div>
+
+          <div class="history-block">
+            <div class="label">Recently Played</div>
+            <div class="history-list" id="history-list"></div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Compact station controls: host · music language -->
+      <section class="station-bar" aria-label="Station controls">
+        <div class="picker" id="host-picker" data-picker="host">
+          <span class="picker-label">Host</span>
+          <button
+            type="button"
+            class="picker-btn"
+            id="host-btn"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-controls="host-menu"
+          >
+            <span class="picker-value">
+              <span class="picker-title" id="host-btn-title">Rex</span>
+              <span class="picker-sub" id="host-btn-sub">Smooth classic FM</span>
+            </span>
+            <span class="picker-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="picker-menu" id="host-menu" role="listbox" hidden></div>
+        </div>
+
+        <div class="picker" id="lang-picker" data-picker="lang">
+          <span class="picker-label">Music language</span>
+          <button
+            type="button"
+            class="picker-btn"
+            id="lang-btn"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            aria-controls="lang-menu"
+          >
+            <span class="picker-value">
+              <span class="picker-title" id="lang-btn-title">English</span>
+              <span class="picker-sub" id="lang-btn-sub">lyrics &amp; vocals</span>
+            </span>
+            <span class="picker-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div class="picker-menu" id="lang-menu" role="listbox" hidden></div>
+        </div>
       </section>
 
-      <section class="transport">
-        <button type="button" id="btn-play" class="btn primary">Play</button>
-        <button type="button" id="btn-stop" class="btn">Stop</button>
-        <label class="vol">
-          <span>Volume</span>
-          <input type="range" id="volume" min="0" max="1" step="0.01" value="0.85" />
-        </label>
+      <div class="mix-block" id="mix-block">
+        <div class="mix-line" id="mix-line">Genres · click to toggle · at least one on</div>
+        <div class="genre-tags" id="genre-tags" role="group" aria-label="Genres"></div>
+      </div>
+
+      <section class="llm-panel" id="llm-panel" hidden>
+        <div class="label">Host LLM · Ollama</div>
+        <p class="mood-hint" id="llm-detail">Checking model…</p>
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-fill" id="llm-progress-fill"></div>
+        </div>
+        <div class="progress-meta">
+          <span id="llm-percent">—</span>
+          <span id="llm-model-name"></span>
+        </div>
+        <div class="controls" style="margin-top: 18px">
+          <button type="button" id="btn-llm-retry">Retry download</button>
+        </div>
       </section>
 
-      <audio id="player" playsinline></audio>
-
-      <section class="queue">
-        <h3>Up next</h3>
-        <ul id="queue-list"></ul>
-      </section>
-
-      <footer class="footer">
-        <span id="health-line">Checking health…</span>
+      <footer class="footer-slim">
+        <div class="health" id="health-line">Checking health…</div>
       </footer>
     </div>
+
+    <audio id="player" playsinline></audio>
     <script src="/static/app.js"></script>
   </body>
 </html>

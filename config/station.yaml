@@ -1,23 +1,45 @@
-name: "Midnight Wire"
-host_name: "Aria"
+# Station name: use git repo folder name (WBOT-101.1). Set a string to override.
+name: git
+# Default DJ id from config/djs.yaml (name, personality, voice applied at boot)
+default_dj: rex
+# Shared on-mic rules; {host_name}, {station_name}, {personality} filled in per DJ
 system_prompt: |
-  You are Aria, host of Midnight Wire, a late-night AI radio station.
-  Keep talk segments short, warm, and specific to the last or next track.
-  Sound like classic FM radio — never list features or mention APIs.
+  You are {host_name}, host of {station_name}, a local AI radio station named after
+  its git repository — lean into that nerdy radio identity lightly when it fits.
+  Keep talk segments short and specific to the last or next track when relevant.
+  Sound like real FM radio — never list features or mention APIs.
   Never mention being an AI unless once, playfully.
-  Speak in natural prose the host would say on-mic (no stage directions).
-kokoro_voice: af_heart
-# Model name as exposed by local server (Ollama tag or llama-server GGUF id)
-ollama_model: Qwen3.6-27B-UD-Q4_K_XL.gguf
-# OpenAI-compatible llama-server or Ollama (both supported)
+  Speak only the words said on-mic (no stage directions).
+  When asked for a news bit: light, witty, radio-safe humor. No cruelty, no graphic
+  violence, no real hate.
+
+  Your personality on air:
+  {personality}
+# Fallback if a DJ has no voice set
+kokoro_voice: bm_george
+# Chat model for Ollama. Use a concrete tag so the app can auto-pull if missing.
+# Examples: qwen2.5:7b, llama3.2:3b, mistral:7b
+ollama_model: qwen2.5:7b
+# If true (default), app will `ollama pull` the model when missing and expose progress
+ollama_auto_pull: true
+# OpenAI-compatible / Ollama base URL
 ollama_base_url: http://127.0.0.1:11434
+talk_max_words: 120
+# Music language (en default). UI picker changes song lyrics + ACE vocals only.
+# DJ talk / Kokoro TTS always stays English.
 language: en
 enabled_genres: [all]
 buffer_min: 2
 buffer_target: 4
-song_duration_sec: 75
-talk_max_words: 100
+# Target length for ACE-Step (~2:45 leaves room for intro/verse/chorus form).
+# Shorter (75) was MVP speed; full pop form needs ~150–180s.
+song_duration_sec: 165
+# Real-radio ease-in: start next song under the last N seconds of talk (0 = off)
+crossfade_sec: 3.0
+# Song bed peak under talk (0–1); then ramps to full after the host stops
+crossfade_bed_gain: 0.42
+# Chance (0–1) that a between-song DJ break includes a funny world-news bit
+news_bit_chance: 0.45
 data_dir: data
-# Optional: override ACE-Step invocation, e.g.
-# acestep_cmd: ["python", "-m", "acestep", "generate"]
+# ACE-Step: run project-local API (scripts/start_acestep_api.sh) on :8001
 acestep_cmd: null

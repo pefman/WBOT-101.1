@@ -13,3 +13,6 @@ web/dist/
 .DS_Store
 .superpowers/
 .hls_tmp/
+# ACE-Step lives under vendor/ (large models + own .venv)
+vendor/
+

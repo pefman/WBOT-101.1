@@ -1,0 +1,9 @@
+id: latin
+name: Latin Music
+major: Latin
+style_prompt: >
+  Latin music spectrum (reggaeton, salsa, bachata, Latin pop energy): syncopated percussion, warm bass, melodic hooks, danceable groove, Spanish or bilingual-friendly vocal character, festive or romantic heat, ~90–110 BPM (or reggaeton dembow ~90–100), vibrant modern mix.
+lyric_style: Romantic or party energy, rhythmic phrasing, Spanish-leaning or bilingual hooks when natural, danceable chorus
+dj_tone: sunny night host with bounce
+bpm: 100
+duration_sec: 165

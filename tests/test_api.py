@@ -45,6 +45,8 @@ def client(tmp_path, monkeypatch):
                 "kokoro": {"ok": True, "detail": "ok"},
                 "acestep": {"ok": True, "detail": "ok"},
                 "ffmpeg": {"ok": True, "detail": "ok"},
+                "espeak": {"ok": True, "detail": "ok"},
+                "llm": {"ok": True, "detail": "ok"},
             },
         }
 

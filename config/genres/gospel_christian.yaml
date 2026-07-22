@@ -1,0 +1,9 @@
+id: gospel_christian
+name: Gospel / Christian Music
+major: Gospel
+style_prompt: >
+  Gospel / contemporary Christian: uplifting chords, choir or strong harmony vocals optional, piano/organ/guitar foundation, steady worship or gospel groove, emotional crescendo, hopeful energy, ~90–115 BPM, warm spacious mix.
+lyric_style: Faith, hope, gratitude, testimony language, soaring chorus, radio-safe inspirational themes
+dj_tone: warm thoughtful host
+bpm: 100
+duration_sec: 165

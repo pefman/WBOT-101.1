@@ -1,0 +1,9 @@
+id: heavy_metal
+name: Heavy Metal
+major: Metal
+style_prompt: >
+  Heavy metal: distorted rhythm guitars, gallop or driving riffs, powerful drums, assertive bass, strong melodic or forceful vocal (not necessarily scream-only), verse tension into big chorus or riff payoff, ~120–160 BPM, thick aggressive mix with clear lead.
+lyric_style: Epic or defiant themes, bold imagery, memorable chorus shout, metal attitude without gore focus
+dj_tone: intense articulate metal host
+bpm: 140
+duration_sec: 165

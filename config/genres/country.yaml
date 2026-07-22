@@ -1,0 +1,9 @@
+id: country
+name: Country
+major: Country
+style_prompt: >
+  Modern country with classic roots: acoustic and electric guitars, optional steel or banjo color, storytelling vocal, steady drums, melodic bass, verse–chorus with singalong lift, open-road feel, ~100–120 BPM, warm radio mix.
+lyric_style: Story-driven verses, plainspoken detail, heartland or heartbreak themes, big simple chorus
+dj_tone: easygoing country radio host
+bpm: 108
+duration_sec: 165

@@ -1,0 +1,9 @@
+id: kpop
+name: K-pop
+major: Pop
+style_prompt: >
+  K-pop: highly produced multi-section form, bright synths and hybrid drums, strong group-vocal energy or polished solo, pre-chorus lift into massive chorus, danceable precision, glossy sheen, ~115–130 BPM, ultra-clean contemporary mix.
+lyric_style: Catchy bilingual-friendly hooks, confident or romantic themes, tight syllable rhythm, big chorus earworm
+dj_tone: bright pop host, concise and hype
+bpm: 122
+duration_sec: 165

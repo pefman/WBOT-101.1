@@ -1,0 +1,9 @@
+id: edm
+name: Electronic Dance Music
+major: Electronic
+style_prompt: >
+  Broad EDM festival/club energy: four-on-the-floor or big-room drive, supersaw or modern synth leads, sidechained bass, build–drop structure, euphoric or dark energy, wide stereo, ~124–132 BPM, loud but controlled dance mix.
+lyric_style: Short chantable hooks, night-out and lift imagery, sparse verses if any, drop-focused energy
+dj_tone: energetic dance-radio host
+bpm: 128
+duration_sec: 165

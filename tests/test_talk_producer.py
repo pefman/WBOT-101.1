@@ -24,7 +24,44 @@ def _station(tmp_path: Path) -> StationConfig:
         song_duration_sec=60,
         talk_max_words=50,
         data_dir=tmp_path,
+        news_bit_chance=0.0,
+        news_angles=["diplomats arguing about snacks"],
     )
+
+
+def test_news_prompt_includes_angle():
+    station = StationConfig(
+        name="WBOT-101.1",
+        host_name="Aria",
+        system_prompt="host",
+        kokoro_voice="af_heart",
+        ollama_model="m",
+        ollama_base_url="http://x",
+        language="en",
+        enabled_genres=["synthwave"],
+        buffer_min=2,
+        buffer_target=4,
+        song_duration_sec=60,
+        talk_max_words=80,
+        data_dir=Path("/tmp"),
+        news_bit_chance=1.0,
+        news_angles=["stock markets react to breakfast"],
+    )
+    text = talk_mod._build_user_prompt(
+        station,
+        None,
+        None,
+        mode="news",
+        mode_instruction="funny news",
+        spice="be witty",
+        mood_label="Late Night",
+        mood_genres=["lofi_chill"],
+        recent_talk=None,
+        news_angle="stock markets react to breakfast",
+    )
+    assert "funny world-news" in text
+    assert "stock markets react to breakfast" in text
+    assert "WBOT-101.1" in text
 
 
 def test_produce_talk_with_mocks(tmp_path, monkeypatch):

@@ -1,0 +1,9 @@
+id: indie_rock_pop
+name: Indie Rock / Indie Pop
+major: Indie
+style_prompt: >
+  Indie rock / indie pop: jangly or soft-driven guitars or gentle synths, intimate but catchy melodies, human-scale drums, charming polish without mega-pop gloss, bittersweet uplift, ~105–120 BPM, airy stereo mix.
+lyric_style: Wry romantic or observational lines, clever hooks, soft anthemic chorus
+dj_tone: laid-back indie radio host
+bpm: 112
+duration_sec: 165

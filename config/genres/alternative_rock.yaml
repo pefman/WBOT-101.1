@@ -1,0 +1,9 @@
+id: alternative_rock
+name: Alternative Rock
+major: Rock
+style_prompt: >
+  Alternative rock: guitar-forward but not arena-gloss only, dynamic verses, cathartic chorus, indie or 90s–00s alt DNA without pastiche overload, solid drums, melodic bass, slightly raw edge, ~110–125 BPM, modern radio rock mix.
+lyric_style: Introspective or restless lines, emotional chorus, alternative sensibility, vivid but not ornate
+dj_tone: college-rock host, warm and curious
+bpm: 118
+duration_sec: 165

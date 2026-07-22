@@ -1,0 +1,9 @@
+id: jazz
+name: Jazz
+major: Jazz
+style_prompt: >
+  Jazz: swinging or straight-ahead groove, piano/guitar/bass/drums combo (optional horns), improvisational feel, warm acoustic tone, tasteful solos, smoky late-night club atmosphere, ~90–140 BPM, natural dynamic mix.
+lyric_style: Sparse cool lines or scat-adjacent phrasing if vocal; otherwise instrumental storytelling feel in vocalise style
+dj_tone: old-school radio charm host
+bpm: 110
+duration_sec: 165

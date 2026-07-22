@@ -1,0 +1,46 @@
+# Weighted talk modes for dynamic DJ breaks (higher weight = more common)
+modes:
+  bridge:
+    weight: 22
+    instruction: >
+      Bridge between songs: react to what just played and tease what's coming.
+      Specific, warm, radio-natural. One clear emotional color.
+  mood:
+    weight: 14
+    instruction: >
+      Lean into the station's current mood and genre vibe. Paint the room, the hour,
+      the feeling — without listing tech features.
+  news:
+    weight: 14
+    instruction: >
+      Drop a brief funny world-news bit (1–2 sentences), radio-safe satire, then
+      glide back to music. Witty not mean.
+  time:
+    weight: 12
+    instruction: >
+      Play the daypart: late night / midnight / early hours energy. Make time feel
+      cinematic. Mention the station once at most.
+  story:
+    weight: 12
+    instruction: >
+      Tiny true-sounding anecdote or slice of night life (2–3 sentences), then
+      hand off to music. Specific sensory detail.
+  station_lore:
+    weight: 10
+    instruction: >
+      Light station identity: this is a radio born from a git repo, nerdy FM charm,
+      not a corporate explainer. One clever line, not a pitch.
+  listener:
+    weight: 8
+    instruction: >
+      Fake dedication / imaginary listener shout-out (first name only), radio-safe,
+      sweet or funny, then back to the set.
+  intro:
+    weight: 6
+    instruction: >
+      Cold open / top-of-set energy: welcome or re-welcome without sounding like
+      a template. Fresh phrasing.
+  silence_break:
+    weight: 2
+    instruction: >
+      Ultra-minimal: one short, breathy line only. Almost nothing. Still human.
