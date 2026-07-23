@@ -255,11 +255,11 @@ async def check_vllm(base_url: str, text_model: str, *, timeout: float = 5.0) ->
     try:
         ids = await list_models(base, timeout=timeout)
         if not ids:
+            # No models loaded yet — will start on-demand
             return {
                 "ok": False,
-                "detail": f"vLLM at {base} has no loaded models — "
-                "Start vLLM with: vllm serve --model qwen2.5-7b-instruct",
-                "mode": "error",
+                "detail": f"vLLM not ready yet — will start on-demand on first talk",
+                "mode": "starting",
             }
         resolved = await resolve_model(base, text_model)
         return {
