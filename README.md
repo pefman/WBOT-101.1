@@ -5,7 +5,7 @@
 | Piece | Where it lives |
 |-------|----------------|
 | App + FastAPI + orchestrator | `.venv` / `src/airadio` |
-| **Kokoro TTS** | `.venv` (pip) |
+| **Orpheus TTS** (voice synthesis) | `.venv` (pip) |
 | **espeak-ng** for phonemes | `.venv` via `espeakng-loader` (not apt) |
 | **ffmpeg** for HLS | `.venv` via `imageio-ffmpeg` (not apt) |
 | Web UI + hls.js | packaged in `src/airadio/static/` (no npm at runtime) |
@@ -47,7 +47,7 @@ Also run a **local LLM** (vLLM 0.19.1) matching `config/station.yaml`
 1. Check the project venv / packages  
 2. Start **ACE-Step** on `:8001` if it is installed but not running  
 3. Fail with clear **FAIL + fix** messages if LLM / ACE / tools are not ready  
-4. Start the radio on **0.0.0.0:8000** (LAN-reachable; open `http://<your-ip>:8000/`)  
+4. Start the radio on **0.0.0.0:8888** (LAN-reachable; open `http://<your-ip>:8888/`)  
 
 5. On **Ctrl-C**, stop the radio (and ACE if this script started it)
 
@@ -80,7 +80,6 @@ Manual checks only: `python -m airadio.preflight`
 
 ```bash
 source .venv/bin/activate
-export KOKORO_DEVICE=cpu
 pytest -v
 ```
 
