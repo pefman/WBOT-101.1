@@ -59,7 +59,6 @@ def check_packages() -> list[Check]:
         _need_mod("airadio"),
         _need_mod("fastapi"),
         _need_mod("uvicorn"),
-        _need_mod("orpheus_tts", "orpheus-tts"),
         _need_mod("imageio_ffmpeg", "imageio-ffmpeg"),
         _need_mod("torch"),
         _need_mod("soundfile"),
