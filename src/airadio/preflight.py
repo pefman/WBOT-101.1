@@ -134,28 +134,6 @@ def check_config() -> Check:
         )
 
 
-def check_orpheus() -> Check:
-    """Check Orpheus TTS availability (check package metadata, don't load model)."""
-    try:
-        import importlib.util
-        spec = importlib.util.find_spec("orpheus_tts")
-        if spec is None:
-            raise ImportError("orpheus_tts not found")
-        # Don't import the module - just verify it exists
-        return Check(
-            "Orpheus TTS",
-            True,
-            "orpheus-tts available",
-        )
-    except Exception as exc:  # noqa: BLE001
-        return Check(
-            "Orpheus TTS",
-            False,
-            str(exc),
-            "pip install -e .  (installs Orpheus into .venv)",
-        )
-
-
 def check_acestep_install() -> Check:
     root = _repo_root()
     vendor = root / "vendor" / "ACE-Step-1.5"
@@ -213,14 +191,12 @@ async def check_llm() -> Check:
         )
 
 
-def run_checks(*, require_llm: bool = True, require_ace: bool = True, require_orpheus: bool = True) -> list[Check]:
+def run_checks(*, require_llm: bool = True, require_ace: bool = True) -> list[Check]:
     checks: list[Check] = [check_python()]
     checks.extend(check_packages())
     checks.extend(check_bundled_tools())
     checks.append(check_config())
     checks.append(check_acestep_install())
-    if require_orpheus:
-        checks.append(check_orpheus())
     if require_ace:
         checks.append(check_acestep_api())
     if require_llm:
@@ -267,8 +243,7 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     require_llm = "--skip-llm" not in argv
     require_ace = "--skip-ace" not in argv
-    require_orpheus = "--skip-orpheus" not in argv
-    checks = run_checks(require_llm=require_llm, require_ace=require_ace, require_orpheus=require_orpheus)
+    checks = run_checks(require_llm=require_llm, require_ace=require_ace)
     ok = print_report(checks)
     return 0 if ok else 1
 

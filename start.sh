@@ -195,8 +195,8 @@ else
 fi
 
 # --- 4. Final preflight (all checks) -----
-info "Final preflight check…"
-if ! python -m airadio.preflight --skip-llm; then
+info "Checking dependencies…"
+if ! python -m airadio.preflight; then
   fail "Dependencies not ready. Fix the FAIL items above, then re-run."
   exit 1
 fi
