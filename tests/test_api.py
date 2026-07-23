@@ -41,8 +41,8 @@ def client(tmp_path, monkeypatch):
             "ok": True,
             "degraded": False,
             "components": {
-                "ollama": {"ok": True, "detail": "ok"},
-                "kokoro": {"ok": True, "detail": "ok"},
+                "vllm": {"ok": True, "detail": "ok"},
+                "orpheus": {"ok": True, "detail": "ok"},
                 "acestep": {"ok": True, "detail": "ok"},
                 "ffmpeg": {"ok": True, "detail": "ok"},
                 "espeak": {"ok": True, "detail": "ok"},

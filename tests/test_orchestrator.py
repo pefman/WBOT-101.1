@@ -19,7 +19,7 @@ def _station(tmp: Path) -> StationConfig:
         name="T",
         host_name="H",
         system_prompt="s",
-        kokoro_voice="v",
+        primary_voice="orpheus_leo",
         vllm_text_model="qwen2.5-7b-instruct",
         vllm_base_url="http://x",
         language="en",
@@ -49,7 +49,7 @@ async def _fake_talk(station, out_dir, **kwargs):
         duration_ms=150,
         created_at=time.time(),
         host_name=station.host_name,
-        voice_id=station.kokoro_voice,
+        voice_id=station.primary_voice,
         generation_id=kwargs.get("generation_id"),
     )
 

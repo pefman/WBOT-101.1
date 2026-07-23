@@ -198,9 +198,9 @@ def create_app() -> FastAPI:
     pref_lang = str(prefs.get("language") or "").strip().lower()
     if pref_lang and is_known_language(pref_lang):
         station.language = pref_lang
-    pref_voice = str(prefs.get("kokoro_voice") or "").strip()
+    pref_voice = str(prefs.get("primary_voice") or "").strip()
     if pref_voice and is_known_voice(pref_voice):
-        station.kokoro_voice = pref_voice
+        station.primary_voice = pref_voice
     pref_genres = prefs.get("enabled_genres")
     if isinstance(pref_genres, list) and pref_genres:
         known = [g for g in pref_genres if isinstance(g, str) and g in genres]
@@ -373,7 +373,7 @@ def create_app() -> FastAPI:
             "buffer_min": s.buffer_min,
             "buffer_target": s.buffer_target,
             "song_duration_sec": s.song_duration_sec,
-            "kokoro_voice": orch.station.kokoro_voice,
+            "primary_voice": orch.station.primary_voice,
             "vllm_text_model": s.vllm_text_model,
             "vllm_base_url": s.vllm_base_url,
             "cover_backend": s.cover_backend,
@@ -418,12 +418,12 @@ def create_app() -> FastAPI:
             voice_samples=list(d.voice_samples),
         )
         app.state.station.host_name = result["host_name"]
-        app.state.station.kokoro_voice = result["voice"]
+        app.state.station.primary_voice = result["voice"]
         app.state.station.system_prompt = app.state.orchestrator.station.system_prompt
         merge_prefs(
             app.state.station.data_dir,
             dj_id=result["dj_id"],
-            kokoro_voice=result["voice"],
+            primary_voice=result["voice"],
         )
         return {"ok": True, **result}
 
@@ -431,7 +431,7 @@ def create_app() -> FastAPI:
     async def api_voices() -> dict[str, Any]:
         orch: Orchestrator = app.state.orchestrator
         return {
-            "active": orch.station.kokoro_voice,
+            "active": orch.station.primary_voice,
             "voices": list_voices(),
             "dj_id": orch.dj_id,
         }
@@ -446,8 +446,8 @@ def create_app() -> FastAPI:
             )
         orch: Orchestrator = app.state.orchestrator
         result = orch.set_voice(vid, clear_pending_talk=True)
-        app.state.station.kokoro_voice = result["voice_id"]
-        merge_prefs(app.state.station.data_dir, kokoro_voice=result["voice_id"])
+        app.state.station.primary_voice = result["voice_id"]
+        merge_prefs(app.state.station.data_dir, primary_voice=result["voice_id"])
         return {"ok": True, **result}
 
     @app.get("/api/moods")

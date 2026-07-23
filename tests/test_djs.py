@@ -38,7 +38,7 @@ def test_set_dj_switches_name_personality_and_voice(tmp_path: Path):
         name="TestFM",
         host_name="Host",
         system_prompt="You are Host.",
-        kokoro_voice="af_heart",
+        primary_voice="orpheus_leo",
         vllm_text_model="qwen2.5-7b-instruct",
         vllm_base_url="http://127.0.0.1:8000",
         language="en",
@@ -79,7 +79,7 @@ def test_set_dj_switches_name_personality_and_voice(tmp_path: Path):
     assert result["voice"] == "bm_george"
     assert orch.dj_id == "rex"
     assert orch.station.host_name == "Rex"
-    assert orch.station.kokoro_voice == "bm_george"
+    assert orch.station.primary_voice == "bm_george"
     assert "Sleazy classic FM." in orch.station.system_prompt
     assert "Rex" in orch.station.system_prompt
 
@@ -93,7 +93,7 @@ def test_set_dj_switches_name_personality_and_voice(tmp_path: Path):
         apply_voice=False,
     )
     assert result2["host_name"] == "June"
-    assert orch.station.kokoro_voice == "bm_george"  # not applied
+    assert orch.station.primary_voice == "bm_george"  # not applied - still has old voice
     assert "Chaotic fun." in orch.station.system_prompt
 
 
@@ -104,7 +104,7 @@ def test_set_dj_drops_pending_talk_with_old_voice(tmp_path: Path):
         name="TestFM",
         host_name="June",
         system_prompt="You are June.",
-        kokoro_voice="af_bella",
+        primary_voice="orpheus_jess",
         vllm_text_model="qwen2.5-7b-instruct",
         vllm_base_url="http://127.0.0.1:11434",
         language="en",
@@ -167,7 +167,7 @@ def test_set_dj_drops_pending_talk_with_old_voice(tmp_path: Path):
     assert result["removed_pending_talk"] == 1
     assert len(orch.ready) == 1
     assert orch.ready[0].kind == "song"
-    assert orch.station.kokoro_voice == "bm_george"
+    assert orch.station.primary_voice == "bm_george"
 
     # Voice change also flushes talk
     orch.ready.append(
@@ -184,7 +184,7 @@ def test_set_dj_drops_pending_talk_with_old_voice(tmp_path: Path):
     )
     vr = orch.set_voice("am_michael")
     assert vr["removed_pending_talk"] == 1
-    assert orch.station.kokoro_voice == "am_michael"
+    assert orch.station.primary_voice == "am_michael"
     assert all(s.kind != "talk" for s in orch.ready)
     assert orch.dj_generation >= 1
 
@@ -200,7 +200,7 @@ def test_stale_talk_discarded_after_dj_change(tmp_path: Path):
         name="TestFM",
         host_name="Rex",
         system_prompt="You are Rex.",
-        kokoro_voice="bm_george",
+        primary_voice="orpheus_leo",
         vllm_text_model="qwen2.5-7b-instruct",
         vllm_base_url="http://127.0.0.1:11434",
         language="en",
@@ -260,7 +260,7 @@ def test_stale_talk_discarded_after_dj_change(tmp_path: Path):
             duration_ms=1000,
             created_at=time_mod.time(),
             host_name=station.host_name,
-            voice_id=station.kokoro_voice,
+            voice_id=station.primary_voice,
             generation_id=kwargs.get("generation_id"),
         )
 

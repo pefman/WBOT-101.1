@@ -51,7 +51,7 @@ class StationConfig:
     name: str
     host_name: str
     system_prompt: str
-    kokoro_voice: str
+    primary_voice: str
     vllm_text_model: str
     vllm_base_url: str
     language: str

@@ -14,7 +14,7 @@
 
 **Outside the app (local services you already run):**
 
-- A **local LLM HTTP server** (OpenAI-compatible), e.g. llama.cpp `llama-server` or Ollama — configured in `config/station.yaml`
+- A **local LLM HTTP server** (OpenAI-compatible), e.g. vLLM 0.19.1 — configured in `config/station.yaml`
 - **ACE-Step** music API (`bash scripts/install_acestep.sh` then `bash scripts/start_acestep_api.sh`)
 
 The radio does **not** `apt install` ffmpeg, espeak, or anything else.
@@ -30,14 +30,14 @@ bash scripts/setup_check.sh          # packages + bundled tools only
 bash scripts/install_acestep.sh      # ACE-Step music stack (vendor/, GPU + disk)
 ```
 
-Also run a **local LLM** (Ollama, llama-server, …) matching `config/station.yaml`
-(`ollama_base_url` / `ollama_model`).
+Also run a **local LLM** (vLLM 0.19.1) matching `config/station.yaml`
+(`vllm_base_url` / `vllm_text_model`).
 
 ## Run
 
 ```bash
 # Start LLM yourself (example):
-#   ollama serve && ollama pull qwen2.5:7b
+#   python -m vllm.entrypoints.openai.api_server --model Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4 --port 8000
 
 ./start.sh
 ```

@@ -259,7 +259,7 @@ def load_station(
         name=station_name,
         host_name=host_name,
         system_prompt=system_prompt,
-        kokoro_voice=str(raw.get("kokoro_voice") or "af_heart"),
+        primary_voice=str(raw.get("primary_voice") or "orpheus_leo"),
         vllm_text_model=str(raw.get("vllm_text_model") or "qwen2.5-7b-instruct"),
         vllm_base_url=str(raw.get("vllm_base_url") or "http://127.0.0.1:8000").rstrip(
             "/"

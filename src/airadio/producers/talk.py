@@ -158,7 +158,7 @@ def _build_user_prompt(
     user_request: str | None = None,
 ) -> str:
     now = datetime.now()
-    # DJ talk / Kokoro TTS stays English — station.language only affects music.
+    # DJ talk / Orpheus TTS stays English — station.language only affects music.
     parts = [
         f"Host on mic: {station.host_name} on {station.name}. "
         f"Introduce yourself only as {station.host_name}.",
@@ -281,7 +281,7 @@ async def produce_talk(
 ) -> Segment:
     """Generate one talk break.
 
-    Host name, system prompt, and Kokoro voice are snapshotted at the start so a
+    Host name, system prompt, and voice are snapshotted at the start so a
     mid-flight DJ/voice switch cannot produce a Rex script titled Vega with a
     mixed voice.
     """
@@ -292,7 +292,7 @@ async def produce_talk(
     final_wav = out_dir / f"{seg_id}.wav"
 
     host_name = station.host_name
-    voice_id = station.kokoro_voice
+    voice_id = station.primary_voice
     system_prompt = station.system_prompt
     vllm_base = station.vllm_base_url
     vllm_model = station.vllm_text_model

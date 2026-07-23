@@ -18,8 +18,8 @@ system_prompt: |
 
   Your personality on air:
   {personality}
-# Fallback if a DJ has no voice set
-kokoro_voice: bm_george
+# Fallback if a DJ has no voice set (Orpheus TTS)
+primary_voice: orpheus_leo
 # vLLM unified inference server (text LLM + audio synthesis).
 # Start with: vllm serve --model Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4
 # (Quantized version fits in GPU with desktop GUI running)
@@ -29,7 +29,7 @@ vllm_base_url: http://127.0.0.1:8000
 vllm_text_model: Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4
 talk_max_words: 120
 # Music language (en default). UI picker changes song lyrics + ACE vocals only.
-# DJ talk / Kokoro TTS always stays English.
+# DJ talk / Orpheus TTS always stays English.
 language: en
 # Default: Radio meta-genre → each song picks a random real pack
 enabled_genres: [radio]

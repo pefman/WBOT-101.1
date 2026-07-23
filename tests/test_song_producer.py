@@ -56,7 +56,7 @@ def test_compose_track_two_step(monkeypatch):
         name="T",
         host_name="Rex",
         system_prompt="sys",
-        kokoro_voice="bm_george",
+        primary_voice="orpheus_leo",
         vllm_text_model="qwen2.5-7b-instruct",
         vllm_base_url="http://127.0.0.1:8000",
         language="en",

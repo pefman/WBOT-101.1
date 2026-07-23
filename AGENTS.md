@@ -9,7 +9,7 @@
 | **Language** | Python 3.11+ (async/await) |
 | **Framework** | FastAPI + Uvicorn |
 | **Core Purpose** | Orchestrate LLM → TTS → Music generation → HLS streaming |
-| **Key Components** | Kokoro TTS, ACE-Step 1.5 music generation, local LLM (Ollama/llama-server) |
+| **Key Components** | Orpheus TTS, ACE-Step 1.5 music generation, local LLM (vLLM 0.19.1) |
 | **Deployment** | Standalone: no `apt install` (ffmpeg, espeak-ng, Kokoro all in `.venv`) |
 | **Config** | PyYAML files in `config/` (17 genre packs, DJ profiles, moods) |
 
@@ -20,7 +20,7 @@
 - **Audio Processing**: ffmpeg (via imageio-ffmpeg), soundfile, numpy
 - **TTS**: Kokoro (local, GPU-accelerated)
 - **Music Generation**: ACE-Step 1.5 (vendor/, HTTP API on `:8001`)
-- **LLM Integration**: HTTP client for OpenAI-compatible servers (Ollama/llama-server)
+- **LLM Integration**: HTTP client for OpenAI-compatible servers (vLLM 0.19.1 with Qwen 7B Instruct)
 - **Testing**: pytest 8.0+, pytest-asyncio
 - **Frontend**: Vanilla JS + hls.js 1.5.17 + Vite (packaged in `src/airadio/static/`)
 
@@ -57,7 +57,7 @@ This script:
 4. Starts radio FastAPI on `0.0.0.0:8000`
 5. Traps `Ctrl-C` to cleanly stop services
 
-**Note**: You must run a local LLM yourself (e.g., `ollama serve` or `llama-server`). See [config/station.yaml](config/station.yaml) for LLM configuration.
+**Note**: You must run a local LLM yourself (e.g., `vllm serve --model Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4`). See [config/station.yaml](config/station.yaml) for LLM configuration.
 
 ### Run Tests
 ```bash
@@ -70,7 +70,7 @@ Test files map to core features:
 - `test_song_producer.py` — Music generation pipeline
 - `test_talk_producer.py` — LLM script + TTS
 - `test_config.py`, `test_djs.py`, `test_languages.py` — Config validation
-- Integration tests for clients (Ollama, ACE-Step, library, prefs)
+- Integration tests for clients (vLLM, ACE-Step, library, prefs)
 
 ## Core Architecture
 
@@ -95,7 +95,7 @@ FastAPI app (src/airadio/main.py)
             │    • ACE-Step generates original music → WAV
             │
             └─→ Clients (clients/)
-                 • ollama.py — LLM streaming
+                 • vllm_unified.py — LLM streaming
                  • acestep.py — HTTP API calls
                  • kokoro.py — TTS invocation
 ```
@@ -117,7 +117,7 @@ FastAPI app (src/airadio/main.py)
 | `health.py` | Service readiness checks (LLM, TTS, ACE-Step) |
 | `library.py` | Song library management, re-air pool, garbage collection |
 | `prefs.py` | Desk preferences (DJ, genres, language, voice) — persisted to `data/prefs.json` |
-| `clients/ollama.py` | Streaming LLM client; auto-pulls models on startup |
+| `clients/vllm_unified.py` | vLLM 0.19.1 client for text generation via OpenAI-compatible API |
 | `clients/kokoro.py` | TTS invocation with voice/language selection |
 | `clients/acestep.py` | HTTP API for music generation |
 | `producers/talk.py` | Orchestrate LLM → Kokoro → WAV |
@@ -149,13 +149,13 @@ FastAPI app (src/airadio/main.py)
 
 ### Debugging Generation Failures
 1. Check preflight: `python -m airadio.preflight` (services available?)
-2. Check LLM: `curl http://localhost:11434/api/generate` (Ollama running?)
+2. Check LLM: `curl http://localhost:8000/v1/models` (vLLM running?)
 3. Check ACE-Step: `curl http://localhost:8001/health` (music API up?)
 4. Check TTS: Run `pytest test_talk_producer.py -v` (Kokoro working?)
 5. Logs: Radio prints generation stage (`writing`, `speaking`, `composing`) in real time
 
 ### Adding LLM Prompt Logic
-- DJ scripts: `clients/ollama.py` (prompt template) + `producers/talk.py` (orchestration)
+- DJ scripts: `clients/vllm_unified.py` (prompt template) + `producers/talk.py` (orchestration)
 - Song metadata: `producers/song.py` (LLM call for genre/mood/artist tags)
 - Prompts are config-driven; update `config/news_angles.yaml` or `config/moods.yaml` to change behavior
 
@@ -168,13 +168,13 @@ FastAPI app (src/airadio/main.py)
 
 ### Must Know
 1. **Everything in `.venv`**: No `apt install` needed. ffmpeg, espeak-ng, Kokoro are all bundled. If you see import errors, reinstall: `pip install -e ".[dev]"`.
-2. **Local LLM required**: Radio won't start without a running OpenAI-compatible HTTP server (Ollama, llama-server, etc.). Configure `config/station.yaml` (`ollama_base_url`, `ollama_model`).
+2. **Local LLM required**: Radio won't start without a running vLLM server on :8000. Configure `config/station.yaml` (`vllm_base_url`, `vllm_text_model`).
 3. **GPU lock is critical**: Two async tasks racing for GPU → OOM or silent failures. The lock in `orchestrator.py` prevents this; do not remove or bypass.
 4. **Segments are pre-generated**: While user hears segment N, segment N+1 is already generating in the background. If generation fails, user hears silence, not an error. Check `/api/now` for `generation` stage.
 5. **HLS uses .ts chunks**: Don't manipulate segments in `data/hls/current/` manually; ffmpeg manages them. Stale chunks are auto-cleaned.
 
 ### Common Mistakes
-- **LLM not running**: App starts but plays silence. Run `ollama serve` in another terminal.
+- **LLM not running**: App starts but plays silence. Run vLLM in another terminal with the quantized Qwen model.
 - **ACE-Step installed but not running**: Optional but slow first-request latency if not pre-warmed. `bash scripts/start_acestep_api.sh` to pre-warm.
 - **Modifying config mid-stream**: Config is loaded at startup. Restart radio to pick up new genres/DJs.
 - **GPU OOM during music gen**: Reduce `compose_inference_steps` in `config/station.yaml` or disable cover art (SD-Turbo is memory-heavy).

@@ -370,7 +370,7 @@ class Orchestrator:
             "dj_id": self.dj_id,
             "dj_name": self.station.host_name,
             "dj_blurb": self.dj_blurb,
-            "kokoro_voice": self.station.kokoro_voice,
+            "primary_voice": self.station.primary_voice,
             "enabled_genres": list(self.station.enabled_genres),
             "crossfade_sec": self.station.crossfade_sec,
             "language": self.station.language,
@@ -458,12 +458,12 @@ class Orchestrator:
             )
 
     def set_voice(self, voice_id: str, *, clear_pending_talk: bool = True) -> dict:
-        """Change Kokoro voice for future talk; drop queued talk so old audio is not played."""
-        self.station.kokoro_voice = voice_id
+        """Change voice for future talk; drop queued talk so old audio is not played."""
+        self.station.primary_voice = voice_id
         self._bump_talk_generation(skip_current_talk=clear_pending_talk)
         removed = self.drop_pending_talks() if clear_pending_talk else 0
         log.info(
-            "Kokoro voice set to %s (DJ %s) gen=%d removed_pending_talk=%d",
+            "Voice set to %s (DJ %s) gen=%d removed_pending_talk=%d",
             voice_id,
             self.dj_id,
             self.dj_generation,
@@ -532,7 +532,7 @@ class Orchestrator:
             personality=personality,
         )
         if apply_voice and voice:
-            self.station.kokoro_voice = voice
+            self.station.primary_voice = voice
         if clear_pending_talk:
             self._bump_talk_generation(skip_current_talk=True)
             removed = self.drop_pending_talks()
@@ -542,7 +542,7 @@ class Orchestrator:
             "DJ set to %s (%s) voice=%s gen=%d removed_pending_talk=%d",
             dj_id,
             name,
-            self.station.kokoro_voice,
+            self.station.primary_voice,
             self.dj_generation,
             removed,
         )
@@ -550,7 +550,7 @@ class Orchestrator:
             "dj_id": dj_id,
             "name": name,
             "blurb": blurb,
-            "voice": self.station.kokoro_voice,
+            "voice": self.station.primary_voice,
             "host_name": self.station.host_name,
             "removed_pending_talk": removed,
             "queue_depth": len(self.ready),
@@ -760,7 +760,7 @@ class Orchestrator:
                     # they air *before* this talk (see _next_song_for_new_talk).
                     next_song = self._next_song_for_new_talk()
                     host_at_start = self.station.host_name
-                    voice_at_start = self.station.kokoro_voice
+                    voice_at_start = self.station.primary_voice
                     user_req = None
                     if self._talk_requests:
                         user_req = self._talk_requests.popleft()
@@ -795,7 +795,7 @@ class Orchestrator:
                             host_at_start,
                             self.station.host_name,
                             voice_at_start,
-                            self.station.kokoro_voice,
+                            self.station.primary_voice,
                         )
                         # Re-queue request if we consumed one and talk was discarded
                         if user_req:

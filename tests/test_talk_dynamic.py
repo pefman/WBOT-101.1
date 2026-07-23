@@ -8,7 +8,7 @@ def _station(**kw):
         name="WBOT-101.1",
         host_name="Aria",
         system_prompt="host",
-        kokoro_voice="af_heart",
+        primary_voice="orpheus_leo",
         vllm_text_model="qwen2.5-7b-instruct",
         vllm_base_url="http://127.0.0.1:8000",
         language="en",
