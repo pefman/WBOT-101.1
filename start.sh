@@ -129,6 +129,7 @@ if [[ $MISSING -eq 1 ]]; then
 fi
 
 export KOKORO_DEVICE="${KOKORO_DEVICE:-cpu}"
+export ORPHEUS_DEVICE="${ORPHEUS_DEVICE:-cpu}"
 export PYTHONPATH="${ROOT}/src${PYTHONPATH:+:$PYTHONPATH}"
 export HF_HOME="${ROOT}/models/huggingface"
 
