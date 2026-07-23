@@ -106,6 +106,12 @@ fi
 # shellcheck source=/dev/null
 source .venv/bin/activate
 
+# Set device preferences BEFORE any Python imports (vLLM, Orpheus, etc.)
+export KOKORO_DEVICE="${KOKORO_DEVICE:-cpu}"
+export ORPHEUS_DEVICE="${ORPHEUS_DEVICE:-cpu}"
+export PYTHONPATH="${ROOT}/src${PYTHONPATH:+:$PYTHONPATH}"
+export HF_HOME="${ROOT}/models/huggingface"
+
 # Check if critical packages are missing
 MISSING=0
 if ! python -c "import vllm" 2>/dev/null; then
@@ -127,11 +133,6 @@ if [[ $MISSING -eq 1 ]]; then
   fi
   info "Dependencies installed successfully."
 fi
-
-export KOKORO_DEVICE="${KOKORO_DEVICE:-cpu}"
-export ORPHEUS_DEVICE="${ORPHEUS_DEVICE:-cpu}"
-export PYTHONPATH="${ROOT}/src${PYTHONPATH:+:$PYTHONPATH}"
-export HF_HOME="${ROOT}/models/huggingface"
 
 # --- 2. Preflight (packages, ffmpeg, config, …) without ACE/LLM yet ----------
 info "Checking project install…"
