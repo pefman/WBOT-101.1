@@ -179,9 +179,9 @@ if ! curl -sf "http://127.0.0.1:8000/v1/models" >/dev/null 2>&1; then
   VLLM_PID=$!
   
   # Wait for vLLM to be ready (with timeout)
-  local start_time=$(date +%s)
-  local max_wait=300  # 5 minutes
-  local ready=0
+  start_time=$(date +%s)
+  max_wait=300  # 5 minutes
+  ready=0
   while [[ $(( $(date +%s) - start_time )) -lt $max_wait ]]; do
     if curl -sf "http://127.0.0.1:8000/v1/models" >/dev/null 2>&1; then
       ready=1
