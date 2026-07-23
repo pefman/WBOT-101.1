@@ -135,13 +135,17 @@ def check_config() -> Check:
 
 
 def check_orpheus() -> Check:
-    """Check Orpheus TTS availability (packaged as orpheus-tts)."""
+    """Check Orpheus TTS availability (check package metadata, don't load model)."""
     try:
-        import orpheus_tts  # noqa: F401
+        import importlib.util
+        spec = importlib.util.find_spec("orpheus_tts")
+        if spec is None:
+            raise ImportError("orpheus_tts not found")
+        # Don't import the module - just verify it exists
         return Check(
             "Orpheus TTS",
             True,
-            "orpheus-tts package available",
+            "orpheus-tts available",
         )
     except Exception as exc:  # noqa: BLE001
         return Check(

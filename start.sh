@@ -134,14 +134,7 @@ if [[ $MISSING -eq 1 ]]; then
   info "Dependencies installed successfully."
 fi
 
-# --- 2. Preflight (packages, ffmpeg, config, …) without ACE/LLM/Orpheus yet ----
-info "Checking project install…"
-if ! python -m airadio.preflight --skip-llm --skip-ace --skip-orpheus; then
-  fail "Project install incomplete. Fix the FAIL items above."
-  exit 1
-fi
-
-# --- 3. ACE-Step: install if needed, then start API if not running --------
+# --- 2. ACE-Step: install if needed, then start API if not running --------
 VENDOR="$ROOT/vendor/ACE-Step-1.5"
 if [[ ! -d "$VENDOR" ]]; then
   info "ACE-Step not installed — auto-installing…"
@@ -164,7 +157,7 @@ else
   info "ACE-Step API already up on :8001"
 fi
 
-# --- 4. vLLM: Check if running, start if needed ----------------------------
+# --- 3. vLLM: Check if running, start if needed ----------------------------
 info "Checking vLLM…"
 if ! curl -sf "http://127.0.0.1:8000/v1/models" >/dev/null 2>&1; then
   info "vLLM not running — starting it in background…"
@@ -201,14 +194,14 @@ else
   info "vLLM already running on :8000"
 fi
 
-# --- 5. Full preflight including LLM ----------------------------------------
-info "Checking LLM + ACE…"
-if ! python -m airadio.preflight --skip-orpheus; then
+# --- 4. Final preflight (all checks) -----
+info "Final preflight check…"
+if ! python -m airadio.preflight --skip-llm; then
   fail "Dependencies not ready. Fix the FAIL items above, then re-run."
   exit 1
 fi
 
-# --- 6. Run app -------------------------------------------------------
+# --- 5. Run app -------------------------------------------------------
 HOST="${AIRADIO_HOST:-0.0.0.0}"
 PORT="${AIRADIO_PORT:-8888}"
 info "Starting radio on ${HOST}:${PORT}  (Ctrl-C to stop)"
