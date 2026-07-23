@@ -164,29 +164,34 @@ def check_acestep_api() -> Check:
 
 
 async def check_llm() -> Check:
+    """Check that vLLM package is installed.
+    
+    vLLM service will be started on-demand when first talk is generated,
+    so we don't require it to be running at boot time.
+    """
     try:
-        from airadio.clients.vllm_unified import check_vllm
+        import vllm  # noqa: F401
+        
         from airadio.config import load_station
-
         station, _ = load_station()
-        result = await check_vllm(station.vllm_base_url, station.vllm_text_model)
-        if result.get("ok"):
-            return Check("vLLM (text+audio)", True, result.get("detail", "ok"))
+        return Check(
+            "vLLM (text+audio)",
+            True,
+            f"package installed, will start on-demand on {station.vllm_base_url}",
+        )
+    except ImportError:
         return Check(
             "vLLM (text+audio)",
             False,
-            result.get("detail", "unreachable"),
-            "Start vLLM (auto-starts in app or manual):\n"
-            "  Option 1 (auto): ./start.sh  (app starts vLLM internally)\n"
-            "  Option 2 (manual): bash scripts/launch_vllm.sh\n"
-            "Models download on first use (~9GB total).",
+            "vllm package not installed",
+            "Install vLLM: pip install -e '.[dev]'",
         )
     except Exception as exc:  # noqa: BLE001
         return Check(
             "vLLM (text+audio)",
             False,
             str(exc),
-            "Start vLLM: ./start.sh (auto) or bash scripts/launch_vllm.sh (manual)",
+            "Check config/station.yaml",
         )
 
 
