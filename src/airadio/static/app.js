@@ -1145,11 +1145,11 @@ async function refreshHealth() {
     const parts = Object.entries(h.components || {}).map(
       ([k, v]) => `${k}: ${v.ok ? "ok" : "no"}`
     );
-    const llm = h.components?.llm || {};
+    const llm = h.components?.vllm || {};
     const pull = h.llm_pull || {};
     let llmHint = " · host LLM ERROR (Play blocked)";
     if (llm.ok) {
-      llmHint = llm.model ? ` · host LLM ${llm.model}` : " · host LLM ok";
+      llmHint = llm.model ? ` · vLLM ${llm.model}` : " · vLLM ok";
     } else if (pull.status === "pulling") {
       llmHint = ` · downloading ${pull.model || "model"} ${pull.percent != null ? pull.percent + "%" : ""}`;
     }

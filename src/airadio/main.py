@@ -41,8 +41,9 @@ class _QuietAccessFilter(logging.Filter):
         "GET /api/now",
         "GET /api/queue",
         "GET /api/history",
-        "GET /api/llm/status",
         "GET /api/health",
+        "GET /api/llm/status",
+        "POST /api/llm/ensure",
     )
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -304,6 +305,34 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     async def api_health() -> dict[str, Any]:
         return await check_health(app.state.station)
+
+    @app.get("/api/llm/status")
+    async def api_llm_status() -> dict[str, Any]:
+        """Get status of vLLM inference engine."""
+        vllm_check = await check_vllm(
+            app.state.station.vllm_base_url,
+            app.state.station.vllm_text_model,
+        )
+        return {
+            "ok": vllm_check.get("ok", False),
+            "model": vllm_check.get("model") or app.state.station.vllm_text_model,
+            "detail": vllm_check.get("detail", ""),
+            "status": "ready" if vllm_check.get("ok") else "error",
+        }
+
+    @app.post("/api/llm/ensure")
+    async def api_llm_ensure() -> dict[str, Any]:
+        """Ensure vLLM is available (external, so returns current status)."""
+        vllm_check = await check_vllm(
+            app.state.station.vllm_base_url,
+            app.state.station.vllm_text_model,
+        )
+        return {
+            "ok": vllm_check.get("ok", False),
+            "model": vllm_check.get("model") or app.state.station.vllm_text_model,
+            "detail": vllm_check.get("detail", ""),
+            "status": "ready" if vllm_check.get("ok") else "error",
+        }
 
     @app.get("/api/languages")
     async def api_languages() -> dict[str, Any]:
