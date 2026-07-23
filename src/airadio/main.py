@@ -64,13 +64,15 @@ _vllm_subprocess: subprocess.Popen | None = None
 
 async def start_vllm_if_needed(base_url: str) -> bool:
     """
-    Check if vLLM is running externally; if not, start it internally.
+    Check if vLLM is running externally. With on-demand design, vLLM starts
+    on first talk generation (via ensure_vllm_running in vllm_unified.py),
+    so we don't block app startup waiting for it.
     
-    Returns True if vLLM is available (either externally or just started).
+    Returns True (app can start regardless of vLLM state).
     """
     global _vllm_subprocess
     
-    # Check if already running
+    # Check if already running externally
     try:
         check = await check_vllm(base_url, "qwen2.5-7b-instruct", timeout=2.0)
         if check.get("ok"):
@@ -79,52 +81,9 @@ async def start_vllm_if_needed(base_url: str) -> bool:
     except Exception:  # noqa: BLE001
         pass
     
-    # Start internally if not running
-    try:
-        log.info("vLLM not running; starting internal subprocess…")
-        # Ensure models directory exists
-        models_dir = Path.cwd() / "models"
-        models_dir.mkdir(exist_ok=True)
-        
-        # vLLM command
-        cmd = [
-            sys.executable,
-            "-m",
-            "vllm.entrypoints.openai.api_server",
-            "--model",
-            "qwen2.5-7b-instruct",
-            "--tensor-parallel-size",
-            "1",
-            "--gpu-memory-utilization",
-            "0.8",
-            "--port",
-            "8000",
-        ]
-        
-        env = {**os.environ, "HF_HOME": str(models_dir / "huggingface")}
-        _vllm_subprocess = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env,
-        )
-        
-        # Wait for vLLM to be ready (max 30 seconds)
-        for attempt in range(60):
-            await asyncio.sleep(0.5)
-            try:
-                check = await check_vllm(base_url, "qwen2.5-7b-instruct", timeout=1.0)
-                if check.get("ok"):
-                    log.info("vLLM started and ready on :8000")
-                    return True
-            except Exception:  # noqa: BLE001
-                pass
-        
-        log.warning("vLLM did not become ready in time (check logs below)")
-        return False
-    except Exception as exc:  # noqa: BLE001
-        log.error("Failed to start vLLM: %s", exc)
-        return False
+    # Not running externally; vLLM will start on-demand when first talk is generated
+    log.info("vLLM will start on-demand on first talk generation")
+    return True
 
 
 async def stop_vllm() -> None:
@@ -257,10 +216,8 @@ def create_app() -> FastAPI:
         app.state.default_dj_id = default_dj_id
         app.state.orchestrator = orchestrator
         
-        # Start vLLM (internal or external)
-        vllm_ready = await start_vllm_if_needed(station.vllm_base_url)
-        if not vllm_ready:
-            log.warning("vLLM may not be ready; ensure it's running before starting radio")
+        # Start vLLM (on-demand when first talk is generated)
+        await start_vllm_if_needed(station.vllm_base_url)
         
         await orchestrator.start()
 
