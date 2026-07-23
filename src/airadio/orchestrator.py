@@ -29,11 +29,13 @@ SongFn = Callable[..., Awaitable[Segment]]
 # Human labels for generation stages (API + UI)
 _STAGE_LABELS: dict[str, str] = {
     "idle": "",
+    "talk_startup_llm": "Starting language model",
     "talk_writing": "Writing DJ script",
     "talk_speaking": "Speaking (TTS)",
     "talk_finalize": "Finalizing talk audio",
     "song_identity": "Inventing artist & title",
     "song_lyrics": "Writing lyrics",
+    "song_cover": "Generating album artwork",
     "song_unload_llm": "Freeing GPU for music",
     "song_music": "Composing music (ACE-Step)",
     "song_finalize": "Finalizing track",

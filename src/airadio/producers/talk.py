@@ -14,7 +14,7 @@ import yaml
 
 from airadio.audio.process import loudnorm_ffmpeg, probe_duration_ms
 from airadio.clients.orpheus import synthesize_orpheus, unload_orpheus_model
-from airadio.clients.vllm_unified import vllm_generate_text, unload_vllm_model
+from airadio.clients.vllm_unified import vllm_generate_text, unload_vllm_model, ensure_vllm_running
 from airadio.config import default_config_dir
 from airadio.models_types import Segment, StationConfig
 from airadio.voices import get_dj_voice
@@ -351,6 +351,11 @@ async def produce_talk(
                 on_stage(stage, detail)
             except Exception:  # noqa: BLE001
                 pass
+
+    # Ensure vLLM is running before first generation
+    log.info("  [talk] 0/3 Starting LLM model (if not already running)…")
+    _stage("talk_startup_llm", "Starting language model…")
+    await ensure_vllm_running(vllm_base, vllm_model)
 
     log.info(
         "  [talk] 1/3 LLM writing script (host=%s mode=%s max_words=%s model=%s)…",

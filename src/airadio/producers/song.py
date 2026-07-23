@@ -412,6 +412,27 @@ async def produce_song(
         station, genre, recent_songs=recent_songs, on_stage=on_stage
     )
 
+    # Generate cover art while vLLM is still on GPU (before unload)
+    cover_path: Path | None = None
+    cover_file = out_dir / f"{seg_id}_cover.png"
+    try:
+        backend = station.cover_backend
+        steps = station.cover_sd_steps
+        log.info("  [song] 1b/4 Cover art (%s)…", backend)
+        _stage("song_cover", "Generating album artwork…")
+        generate_cover(
+            cover_file,
+            title=title,
+            artist=artist,
+            genre_id=genre.id,
+            seed=seg_id,
+            backend=backend,
+            steps=steps,
+        )
+        cover_path = cover_file
+    except Exception as exc:  # noqa: BLE001
+        log.warning("  [song] cover art failed (non-fatal): %s", exc)
+
     # Free VRAM for ACE; reloads automatically on next talk
     log.info("  [song] unloading LLM so ACE can use the GPU…")
     _stage("song_unload_llm", "Freeing GPU for music model…")
@@ -486,25 +507,6 @@ async def produce_song(
         f"{style.strip()}\n\n"
         f"{(lyrics or '').strip()}\n"
     )
-
-    cover_path: Path | None = None
-    cover_file = out_dir / f"{seg_id}_cover.png"
-    try:
-        backend = station.cover_backend
-        steps = station.cover_sd_steps
-        log.info("  [song] cover art (%s)…", backend)
-        generate_cover(
-            cover_file,
-            title=title,
-            artist=artist,
-            genre_id=genre.id,
-            seed=seg_id,
-            backend=backend,
-            steps=steps,
-        )
-        cover_path = cover_file
-    except Exception as exc:  # noqa: BLE001
-        log.warning("  [song] cover art failed (non-fatal): %s", exc)
 
     return Segment(
         id=seg_id,

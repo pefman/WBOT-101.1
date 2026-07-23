@@ -157,51 +157,8 @@ else
   info "ACE-Step API already up on :8001"
 fi
 
-# --- 3. vLLM: Check if running, start if needed ----------------------------
-info "Checking vLLM…"
-if ! curl -sf "http://127.0.0.1:8000/v1/models" >/dev/null 2>&1; then
-  info "vLLM not running — starting it in background…"
-  info "(Model download on first use: ~3.5GB, may take 5-10 min)"
-  info "Logs will show HuggingFace download progress:"
-  info "---"
-  
-  # Start vLLM in background WITH output visible (not suppressed)
-  # This shows download progress and other important messages
-  python -m vllm.entrypoints.openai.api_server \
-    --model Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4 \
-    --tensor-parallel-size 1 \
-    --gpu-memory-utilization 0.8 \
-    --max-model-len 2048 \
-    --port 8000 &
-  VLLM_PID=$!
-  
-  # Wait for vLLM to be ready (no hard timeout - let it download fully)
-  start_time=$(date +%s)
-  check_interval=5
-  last_status=0
-  while true; do
-    current_time=$(date +%s)
-    elapsed=$(( current_time - start_time ))
-    
-    # Check every 5 seconds
-    if curl -sf "http://127.0.0.1:8000/v1/models" >/dev/null 2>&1; then
-      info "---"
-      info "✓ vLLM ready on :8000"
-      break
-    fi
-    
-    # Print status every 30 seconds
-    if [[ $(( elapsed - last_status )) -ge 30 ]]; then
-      elapsed_min=$(( elapsed / 60 ))
-      info "  Still waiting… (${elapsed_min}m elapsed)"
-      last_status=$elapsed
-    fi
-    
-    sleep 5
-  done
-else
-  info "vLLM already running on :8000"
-fi
+# --- 3. vLLM: Started on-demand by produce_talk() -------------------------
+info "vLLM will be started on-demand when first talk is generated."
 
 # --- 4. Final preflight (all checks) -----
 info "Checking dependencies…"

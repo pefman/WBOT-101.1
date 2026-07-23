@@ -10,8 +10,11 @@ Models are stored in ./models/ and downloaded automatically on first use.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+import subprocess
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -29,6 +32,84 @@ def llm_unload_enabled() -> bool:
         "false",
         "no",
         "off",
+    )
+
+
+async def ensure_vllm_running(
+    base_url: str = "http://127.0.0.1:8000",
+    model: str = "Qwen/Qwen2.5-7B-Instruct",
+    *,
+    timeout: float = 600.0,
+) -> bool:
+    """
+    Check if vLLM is running on base_url; start it if not.
+    
+    Returns True if vLLM is ready. Raises exception if startup fails.
+    This is called on-demand by produce_talk() before LLM generation.
+    """
+    base = base_url.rstrip("/")
+    
+    # Check if already running
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(f"{base}/v1/models")
+            if r.status_code == 200:
+                log.info("  [vllm] already running on %s", base)
+                return True
+    except Exception:  # noqa: BLE001
+        pass
+    
+    # Not running — start it
+    log.info("  [vllm] starting process (model=%s)…", model)
+    hf_home = os.environ.get("HF_HOME", str(Path.cwd() / "models" / "huggingface"))
+    
+    try:
+        proc = subprocess.Popen(
+            [
+                "python",
+                "-m",
+                "vllm.entrypoints.openai.api_server",
+                f"--model={model}",
+                "--tensor-parallel-size=1",
+                "--gpu-memory-utilization=0.8",
+                "--port=8000",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env={**os.environ, "HF_HOME": hf_home},
+            start_new_session=True,  # Detach from parent so it survives shell exit
+        )
+        log.info("  [vllm] process started (PID %s), waiting for readiness…", proc.pid)
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"Failed to start vLLM process: {exc}") from exc
+    
+    # Poll for readiness
+    start_time = asyncio.get_event_loop().time()
+    poll_interval = 5.0
+    last_status_time = start_time
+    
+    while asyncio.get_event_loop().time() - start_time < timeout:
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                r = await client.get(f"{base}/v1/models")
+                if r.status_code == 200:
+                    log.info("  [vllm] ready on %s", base)
+                    return True
+        except Exception:  # noqa: BLE001
+            pass
+        
+        # Status update every 30 seconds
+        now = asyncio.get_event_loop().time()
+        if now - last_status_time > 30:
+            elapsed = int(now - start_time)
+            log.info(f"  [vllm] still waiting for readiness (elapsed {elapsed}s)…")
+            last_status_time = now
+        
+        await asyncio.sleep(poll_interval)
+    
+    raise TimeoutError(
+        f"vLLM did not start within {timeout:.0f}s on {base}. "
+        "Check GPU driver, VRAM availability, or model download progress."
     )
 
 
