@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "airadio"
 version = "0.1.0"
-description = "100% local AI radio station (LLM + Kokoro TTS + ACE-Step)"
+description = "100% local AI radio station (vLLM + Orpheus TTS + ACE-Step)"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -18,11 +18,9 @@ dependencies = [
   "numpy>=1.26.0",
   "Pillow>=10.0.0",
   # Everything below installs into the project .venv only (no system packages)
-  "kokoro>=0.7.0",
   "torch",
   "imageio-ffmpeg>=0.5.0",   # ships ffmpeg binary inside the venv
-  "espeakng-loader>=0.2.0",  # ships libespeak-ng inside the venv for Kokoro
-  "orpheus-speech>=0.0.0",   # Orpheus TTS (3B model, requires vllm)
+  "orpheus-tts>=0.1.0",       # Orpheus TTS (3B model, requires vllm)
   "vllm>=0.7.3",             # LLM inference engine (required for Orpheus)
 ]
 

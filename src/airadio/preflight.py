@@ -135,17 +135,22 @@ def check_config() -> Check:
         )
 
 
-def check_kokoro() -> Check:
-    from airadio.clients.kokoro import kokoro_available
-
-    ok, detail = kokoro_available()
-    return Check(
-        "Kokoro TTS",
-        ok,
-        detail,
-        "pip install -e .  (installs kokoro into .venv)\n"
-        "Optional: export KOKORO_DEVICE=cpu",
-    )
+def check_orpheus() -> Check:
+    """Check Orpheus TTS availability (packaged as orpheus-tts)."""
+    try:
+        import orpheus_tts  # noqa: F401
+        return Check(
+            "Orpheus TTS",
+            True,
+            "orpheus-tts package available",
+        )
+    except Exception as exc:  # noqa: BLE001
+        return Check(
+            "Orpheus TTS",
+            False,
+            str(exc),
+            "pip install -e .  (installs Orpheus into .venv)",
+        )
 
 
 def check_acestep_install() -> Check:
@@ -210,7 +215,7 @@ def run_checks(*, require_llm: bool = True, require_ace: bool = True) -> list[Ch
     checks.extend(check_packages())
     checks.extend(check_bundled_tools())
     checks.append(check_config())
-    checks.append(check_kokoro())
+    checks.append(check_orpheus())
     checks.append(check_acestep_install())
     if require_ace:
         checks.append(check_acestep_api())

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from airadio.audio.process import ffmpeg_available, ffmpeg_exe
 from airadio.clients.acestep import acestep_available
-from airadio.clients.kokoro import kokoro_available
+# Health checks: vLLM, Orpheus TTS, ACE-Step
 from airadio.clients.orpheus import orpheus_available
 from airadio.clients.vllm_unified import check_vllm
 from airadio.models_types import StationConfig
@@ -11,7 +11,6 @@ from airadio.paths import ensure_bundled_espeak
 
 async def check_health(station: StationConfig) -> dict:
     vllm = await check_vllm(station.vllm_base_url, station.vllm_text_model)
-    kokoro_ok, kokoro_detail = kokoro_available()
     orpheus_ok, orpheus_detail = orpheus_available()
     acestep_ok, acestep_detail = acestep_available()
     ff_ok = ffmpeg_available()
@@ -55,7 +54,6 @@ async def check_health(station: StationConfig) -> dict:
 
     components = {
         "vllm": vllm,
-        "kokoro": {"ok": kokoro_ok, "detail": kokoro_detail},
         "orpheus": {"ok": orpheus_ok, "detail": orpheus_detail},
         "acestep": {"ok": acestep_ok, "detail": acestep_detail},
         "ffmpeg": {
