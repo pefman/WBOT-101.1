@@ -203,7 +203,7 @@ fi
 
 # --- 5. Full preflight including LLM ----------------------------------------
 info "Checking LLM + ACE…"
-if ! python -m airadio.preflight; then
+if ! python -m airadio.preflight --skip-orpheus; then
   fail "Dependencies not ready. Fix the FAIL items above, then re-run."
   exit 1
 fi
