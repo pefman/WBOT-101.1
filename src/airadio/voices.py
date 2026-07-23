@@ -125,5 +125,5 @@ def list_voices() -> list[dict]:
 
 
 def is_known_voice(voice_id: str) -> bool:
-    \"\"\"Check if voice_id is known (Orpheus primary or Kokoro legacy).\"\"\"
+    """Check if voice_id is known (Orpheus primary or Kokoro legacy)."""
     return voice_id in VOICE_BY_ID
