@@ -18,5 +18,5 @@ python -m airadio.preflight --skip-llm --skip-ace
 echo
 echo "When ready to go on air:"
 echo "  bash scripts/install_acestep.sh   # once, for music"
-echo "  # start your local LLM (Ollama / llama-server)"
+echo "  # start your local LLM (vLLM)"
 echo "  ./start.sh                        # full preflight + radio"

@@ -12,7 +12,7 @@ fi
 export PATH="$HOME/.local/bin:$PATH"
 cd "$VENDOR"
 
-# Defaults: DiT-only is reliable when VRAM is shared (Ollama, browser, etc.).
+# Defaults: DiT-only is reliable when VRAM is shared (vLLM, browser, etc.).
 # Thinking/5Hz LM needs several extra free GB — enable with ACESTEP_INIT_LLM=true.
 export ACESTEP_API_HOST="${ACESTEP_API_HOST:-127.0.0.1}"
 export ACESTEP_API_PORT="${ACESTEP_API_PORT:-8001}"
