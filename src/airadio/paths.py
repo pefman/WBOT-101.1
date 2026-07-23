@@ -32,8 +32,8 @@ def bundled_ffmpeg() -> str:
 
 def ensure_bundled_espeak() -> dict[str, str]:
     """
-    Point phonemizer / Kokoro at the espeak-ng library shipped in the venv
-    via espeakng-loader (no apt install espeak-ng).
+    Provide the espeak-ng library shipped in the venv via espeakng-loader
+    (no apt install espeak-ng required).
     """
     try:
         import espeakng_loader

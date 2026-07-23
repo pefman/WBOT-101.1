@@ -172,7 +172,7 @@ class VoiceBody(BaseModel):
 
 class DJBody(BaseModel):
     dj_id: str = Field(..., min_length=1)
-    # If true, also apply the DJ's default Kokoro voice
+    # If true, also apply the DJ's default voice
     apply_voice: bool = True
 
 

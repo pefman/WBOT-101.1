@@ -13,10 +13,10 @@ class VoiceInfo:
     gender: str  # female | male
     grade: str = ""
     notes: str = ""
-    backend: str = "kokoro"  # or "orpheus"
+    backend: str = "orpheus"  # Primary TTS engine (Orpheus by default)
 
 
-# Orpheus voices (8 total, trained for natural radio speech)
+# Orpheus voices (8 total, trained for natural radio speech — PRIMARY)
 # Recommend for DJ talk segments: natural intonation, emotion support, conversational
 ORPHEUS_VOICES: list[VoiceInfo] = [
     VoiceInfo("orpheus_tara", "Tara (Orpheus)", "American English", "female", backend="orpheus", notes="Clear, engaging, conversational"),
@@ -29,7 +29,7 @@ ORPHEUS_VOICES: list[VoiceInfo] = [
     VoiceInfo("orpheus_zoe", "Zoe (Orpheus)", "American English", "female", backend="orpheus", notes="Bright, upbeat"),
 ]
 
-# Primary English hosts (Kokoro — for backward compatibility / fallback)
+# Legacy voices for backward compatibility (Kokoro fallback voices)
 # Source: https://huggingface.co/hexgrad/Kokoro-82M VOICES.md
 VOICES: list[VoiceInfo] = ORPHEUS_VOICES + [
     # American female
@@ -109,7 +109,7 @@ def get_dj_voice(dj_id: str, gender: str = "male") -> str:
 
 
 def list_voices() -> list[dict]:
-    """List all available voices (Kokoro + Orpheus)."""
+    """List all available voices (Orpheus primary + Kokoro legacy fallback)."""
     return [
         {
             "id": v.id,
@@ -125,5 +125,5 @@ def list_voices() -> list[dict]:
 
 
 def is_known_voice(voice_id: str) -> bool:
-    """Check if voice_id is known (Kokoro or Orpheus)."""
+    \"\"\"Check if voice_id is known (Orpheus primary or Kokoro legacy).\"\"\"
     return voice_id in VOICE_BY_ID

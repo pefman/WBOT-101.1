@@ -1,4 +1,4 @@
-# On-air hosts: name + personality + default Kokoro voice
+# On-air hosts: name + personality + default voice
 default: rex
 
 djs:
