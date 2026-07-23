@@ -66,11 +66,17 @@ async def check_health(station: StationConfig) -> dict:
         },
         "cover": cover_info,
     }
-    # vLLM is required — no silent fallback scripts
-    ok = vllm["ok"] and acestep_ok and orpheus_ok and ff_ok
+    # vLLM starts on-demand, so if service unreachable but will auto-start, mark degraded
+    # (allows play but indicates suboptimal state)
+    vllm_offline_will_start = (
+        not vllm["ok"]
+        and "will start on-demand" in vllm.get("detail", "")
+    )
+    degraded = vllm_offline_will_start  # Degraded if vLLM starting on-demand
+    ok = acestep_ok and orpheus_ok and ff_ok  # ACE/Orpheus/ffmpeg required; vLLM has fallback
     return {
         "ok": ok,
-        "degraded": False,
+        "degraded": degraded,
         "llm_mode": vllm.get("mode") or ("live" if vllm["ok"] else "error"),
         "cover_model": cover_info,
         "components": components,

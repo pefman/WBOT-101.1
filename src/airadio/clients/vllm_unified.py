@@ -272,6 +272,6 @@ async def check_vllm(base_url: str, text_model: str, *, timeout: float = 5.0) ->
     except Exception as exc:  # noqa: BLE001
         return {
             "ok": False,
-            "detail": f"vLLM unreachable at {base}: {exc}",
-            "mode": "error",
+            "detail": f"vLLM unreachable at {base} — will start on-demand on first talk",
+            "mode": "starting",
         }
