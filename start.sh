@@ -118,31 +118,20 @@ if [[ ! -d .venv ]]; then
   echo "  python3 -m venv .venv"
   echo "  ./start.sh                    # Auto-installs everything + starts radio"
   echo ""
-  echo "Note: vLLM, Orpheus, and models download automatically on first run."
+  echo "Note: vLLM, Kokoro TTS, and models download automatically on first run."
   exit 1
 fi
 
 # shellcheck source=/dev/null
 source .venv/bin/activate
 
-# Set device preferences BEFORE any Python imports (vLLM, Orpheus, etc.)
+# Set device preferences BEFORE any Python imports (vLLM, Kokoro, etc.)
 export KOKORO_DEVICE="${KOKORO_DEVICE:-cpu}"
 export ORPHEUS_DEVICE="${ORPHEUS_DEVICE:-cpu}"
 export PYTHONPATH="${ROOT}/src${PYTHONPATH:+:$PYTHONPATH}"
 export HF_HOME="${ROOT}/models/huggingface"
 
-# Check for HF_TOKEN (needed for Orpheus TTS gated repo access)
-if [[ -z "${HF_TOKEN:-}" ]]; then
-  warn "HF_TOKEN not set. Orpheus TTS requires Hugging Face authentication."
-  echo
-  read -p "Enter your Hugging Face token (or press Enter to skip): " hf_token_input
-  if [[ -n "$hf_token_input" ]]; then
-    export HF_TOKEN="$hf_token_input"
-    info "HF_TOKEN set."
-  else
-    warn "Skipping HF_TOKEN. Orpheus TTS will fail if accessed."
-  fi
-fi
+# Note: Kokoro TTS uses public HF models (no gated repos), so HF_TOKEN is optional
 
 # Check if critical packages are missing
 MISSING=0
