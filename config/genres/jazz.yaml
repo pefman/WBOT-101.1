@@ -20,3 +20,16 @@ lyrics_skeleton: |
 dj_tone: smooth late lounge host
 bpm: 105
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: medium
+typcial_moods:
+  - sophisticated
+  - reflective
+  - soulful
+  - improvisational
+emotional_arcs:
+  - yearning
+  - discovery
+  - longing
+  - contentment

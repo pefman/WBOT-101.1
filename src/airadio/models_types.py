@@ -52,8 +52,8 @@ class StationConfig:
     host_name: str
     system_prompt: str
     kokoro_voice: str
-    ollama_model: str
-    ollama_base_url: str
+    vllm_text_model: str
+    vllm_base_url: str
     language: str
     enabled_genres: list[str]
     buffer_min: int
@@ -61,7 +61,6 @@ class StationConfig:
     song_duration_sec: int  # ACE target length; ~150–180s for full pop form
     talk_max_words: int
     data_dir: Path
-    ollama_auto_pull: bool = True
     config_dir: Path | None = None
     # 0.0–1.0 probability a talk break includes a funny world-news bit
     news_bit_chance: float = 0.4

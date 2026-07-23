@@ -21,3 +21,16 @@ lyrics_skeleton: |
 dj_tone: intimate acoustic host
 bpm: 80
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: low
+typcial_moods:
+  - introspective
+  - earthy
+  - contemplative
+  - storytelling
+emotional_arcs:
+  - journey
+  - reflection
+  - connection
+  - timelessness

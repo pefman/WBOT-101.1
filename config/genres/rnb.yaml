@@ -21,3 +21,16 @@ lyrics_skeleton: |
 dj_tone: smooth late-night host
 bpm: 85
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: medium
+typcial_moods:
+  - sensual
+  - soulful
+  - romantic
+  - smooth
+emotional_arcs:
+  - desire
+  - intimacy
+  - breakup_recovery
+  - self_love

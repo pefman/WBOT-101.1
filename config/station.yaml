@@ -20,13 +20,13 @@ system_prompt: |
   {personality}
 # Fallback if a DJ has no voice set
 kokoro_voice: bm_george
-# Chat model for Ollama. Use a concrete tag so the app can auto-pull if missing.
-# Examples: qwen2.5:7b, llama3.2:3b, mistral:7b
-ollama_model: qwen2.5:7b
-# If true (default), app will `ollama pull` the model when missing and expose progress
-ollama_auto_pull: true
-# OpenAI-compatible / Ollama base URL
-ollama_base_url: http://127.0.0.1:11434
+# vLLM unified inference server (text LLM + audio synthesis).
+# Start with: vllm serve --model Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4
+# (Quantized version fits in GPU with desktop GUI running)
+# Models downloaded to ./models/ directory (gitignored).
+vllm_base_url: http://127.0.0.1:8000
+# Text LLM model (using 4-bit quantized Qwen for smaller memory footprint)
+vllm_text_model: Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4
 talk_max_words: 120
 # Music language (en default). UI picker changes song lyrics + ACE vocals only.
 # DJ talk / Kokoro TTS always stays English.

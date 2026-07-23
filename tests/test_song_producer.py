@@ -44,29 +44,21 @@ def test_format_recent_songs():
 def test_compose_track_two_step(monkeypatch):
     calls: list[str] = []
 
-    async def fake_chat(base, model, system, user, **kw):
+    async def fake_vllm(base_url, model, system, user, **kw):
         calls.append(system[:40])
         if "A&R" in system or "playlist-ready" in system:
-            return (
-                '{"artist":"Pallet Knife","title":"Cold Handle",'
-                '"tags_extra":"crunchy guitars, live room"}'
-            )
-        return (
-            '{"lyrics":"[Intro]\\n[Verse]\\nline one short hook\\nline two short '
-            "hook\\n[Chorus]\\nhook line that sticks\\nhook line that sticks\\n"
-            '[Verse]\\nmore story short line\\n[Chorus]\\nhook line that sticks\\n'
-            '[Outro]"}'
-        )
+            return '{"artist":"Pallet Knife","title":"Cold Handle","tags_extra":"crunchy guitars, live room"}'
+        return '{"lyrics":"[Intro]\\n[Verse]\\nline one short hook\\nline two short hook\\n[Chorus]\\nhook line that sticks\\nhook line that sticks\\n[Verse]\\nmore story short line\\n[Chorus]\\nhook line that sticks\\n[Outro]"}'
 
-    monkeypatch.setattr("airadio.producers.song.ollama_chat", fake_chat)
+    monkeypatch.setattr("airadio.producers.song.vllm_generate_text", fake_vllm)
 
     station = StationConfig(
         name="T",
         host_name="Rex",
         system_prompt="sys",
         kokoro_voice="bm_george",
-        ollama_model="m",
-        ollama_base_url="http://127.0.0.1:11434",
+        vllm_text_model="qwen2.5-7b-instruct",
+        vllm_base_url="http://127.0.0.1:8000",
         language="en",
         enabled_genres=["rock"],
         buffer_min=2,

@@ -15,8 +15,8 @@ def _station(tmp_path: Path) -> StationConfig:
         host_name="Host",
         system_prompt="You are a host.",
         kokoro_voice="af_heart",
-        ollama_model="m",
-        ollama_base_url="http://127.0.0.1:11434",
+        vllm_text_model="qwen2.5-7b-instruct",
+        vllm_base_url="http://127.0.0.1:8000",
         language="en",
         enabled_genres=["synthwave"],
         buffer_min=2,
@@ -35,8 +35,8 @@ def test_news_prompt_includes_angle():
         host_name="Aria",
         system_prompt="host",
         kokoro_voice="af_heart",
-        ollama_model="m",
-        ollama_base_url="http://x",
+        vllm_text_model="qwen2.5-7b-instruct",
+        vllm_base_url="http://x",
         language="en",
         enabled_genres=["synthwave"],
         buffer_min=2,
@@ -68,16 +68,17 @@ def test_news_prompt_includes_angle():
 def test_produce_talk_with_mocks(tmp_path, monkeypatch):
     station = _station(tmp_path)
 
-    async def fake_chat(*a, **k):
+    async def fake_vllm(*a, **k):
         return "Welcome back to Test FM, friends."
 
-    def fake_synth(text, voice, out_path):
+    def fake_synth(text, voice, out_path, emotions=None):
         sr = 24000
         sf.write(str(out_path), np.zeros(sr, dtype=np.float32), sr)
         return 1000
 
-    monkeypatch.setattr(talk_mod, "ollama_chat", fake_chat)
-    monkeypatch.setattr(talk_mod, "synthesize_kokoro", fake_synth)
+    monkeypatch.setattr(talk_mod, "vllm_generate_text", fake_vllm)
+    monkeypatch.setattr(talk_mod, "synthesize_orpheus", fake_synth)
+    monkeypatch.setattr(talk_mod, "unload_orpheus_model", lambda: None)
     monkeypatch.setattr(talk_mod, "loudnorm_ffmpeg", lambda i, o: Path(i).replace(o) or o)
 
     # loudnorm_ffmpeg mock needs to actually produce file

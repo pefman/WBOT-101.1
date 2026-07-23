@@ -58,13 +58,13 @@ async def test_unload_model_keep_alive_zero():
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/ps":
             return httpx.Response(
-                200, json={"models": [{"name": "qwen2.5:7b"}]}
+                200, json={"models": [{"name": "qwen2.5-7b-instruct"}]}
             )
         if request.url.path == "/api/generate":
             body = json.loads(request.read())
             seen.append(body)
             assert body["keep_alive"] == 0
-            assert body["model"] == "qwen2.5:7b"
+            assert body["model"] == "qwen2.5-7b-instruct"
             return httpx.Response(200, json={"done": True})
         return httpx.Response(404)
 
@@ -81,7 +81,7 @@ async def test_unload_model_keep_alive_zero():
     orig = mod.httpx.AsyncClient
     mod.httpx.AsyncClient = Patched
     try:
-        await unload_model("http://127.0.0.1:11434", "qwen2.5:7b")
+        await unload_model("http://127.0.0.1:11434", "qwen2.5-7b-instruct")
         assert seen and seen[0]["keep_alive"] == 0
     finally:
         mod.httpx.AsyncClient = orig

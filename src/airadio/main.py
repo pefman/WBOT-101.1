@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import subprocess
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -12,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from airadio.art.sd_turbo import cover_model_status
-from airadio.clients.ollama_pull import manager as ollama_manager
+from airadio.clients.vllm_unified import check_vllm
 from airadio.config import load_djs, load_moods, load_station
 from airadio.health import check_health
 from airadio.languages import is_known_language, list_languages
@@ -51,6 +55,92 @@ class _QuietAccessFilter(logging.Filter):
 
 logging.getLogger("uvicorn.access").addFilter(_QuietAccessFilter())
 log = logging.getLogger("airadio")
+
+
+# Global vLLM subprocess reference
+_vllm_subprocess: subprocess.Popen | None = None
+
+
+async def start_vllm_if_needed(base_url: str) -> bool:
+    """
+    Check if vLLM is running externally; if not, start it internally.
+    
+    Returns True if vLLM is available (either externally or just started).
+    """
+    global _vllm_subprocess
+    
+    # Check if already running
+    try:
+        check = await check_vllm(base_url, "qwen2.5-7b-instruct", timeout=2.0)
+        if check.get("ok"):
+            log.info("vLLM already running externally at %s", base_url)
+            return True
+    except Exception:  # noqa: BLE001
+        pass
+    
+    # Start internally if not running
+    try:
+        log.info("vLLM not running; starting internal subprocess…")
+        # Ensure models directory exists
+        models_dir = Path.cwd() / "models"
+        models_dir.mkdir(exist_ok=True)
+        
+        # vLLM command
+        cmd = [
+            sys.executable,
+            "-m",
+            "vllm.entrypoints.openai.api_server",
+            "--model",
+            "qwen2.5-7b-instruct",
+            "--tensor-parallel-size",
+            "1",
+            "--gpu-memory-utilization",
+            "0.8",
+            "--port",
+            "8000",
+        ]
+        
+        env = {**os.environ, "HF_HOME": str(models_dir / "huggingface")}
+        _vllm_subprocess = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+        )
+        
+        # Wait for vLLM to be ready (max 30 seconds)
+        for attempt in range(60):
+            await asyncio.sleep(0.5)
+            try:
+                check = await check_vllm(base_url, "qwen2.5-7b-instruct", timeout=1.0)
+                if check.get("ok"):
+                    log.info("vLLM started and ready on :8000")
+                    return True
+            except Exception:  # noqa: BLE001
+                pass
+        
+        log.warning("vLLM did not become ready in time (check logs below)")
+        return False
+    except Exception as exc:  # noqa: BLE001
+        log.error("Failed to start vLLM: %s", exc)
+        return False
+
+
+async def stop_vllm() -> None:
+    """Stop the internal vLLM subprocess if running."""
+    global _vllm_subprocess
+    if _vllm_subprocess:
+        try:
+            _vllm_subprocess.terminate()
+            _vllm_subprocess.wait(timeout=5)
+            log.info("vLLM subprocess terminated")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Error terminating vLLM: %s", exc)
+            try:
+                _vllm_subprocess.kill()
+            except Exception:  # noqa: BLE001
+                pass
+        _vllm_subprocess = None
 
 
 class ControlBody(BaseModel):
@@ -165,20 +255,17 @@ def create_app() -> FastAPI:
         app.state.default_mood_id = default_mood_id
         app.state.default_dj_id = default_dj_id
         app.state.orchestrator = orchestrator
+        
+        # Start vLLM (internal or external)
+        vllm_ready = await start_vllm_if_needed(station.vllm_base_url)
+        if not vllm_ready:
+            log.warning("vLLM may not be ready; ensure it's running before starting radio")
+        
         await orchestrator.start()
-        # Ensure Ollama model is present; pull with progress if missing
-        if station.ollama_auto_pull:
-            try:
-                st = await ollama_manager.ensure_model(
-                    station.ollama_base_url, station.ollama_model
-                )
-                log.info("Ollama ensure: %s", st.get("detail") or st.get("status"))
-            except Exception as exc:  # noqa: BLE001
-                log.warning("Ollama ensure failed: %s", exc)
 
         # Ensure SD-Turbo cover weights are on disk (download on first boot)
-        backend = str(getattr(station, "cover_backend", "") or "").lower()
-        auto_dl = bool(getattr(station, "cover_auto_download", True))
+        backend = station.cover_backend.lower()
+        auto_dl = station.cover_auto_download
         if auto_dl and backend in ("sd_turbo", "sdturbo", "turbo", "sd"):
             try:
                 import asyncio
@@ -204,6 +291,7 @@ def create_app() -> FastAPI:
         )
         yield
         await orchestrator.stop_workers()
+        await stop_vllm()
 
     app = FastAPI(title="AI Radio", version="0.1.0", lifespan=lifespan)
     app.add_middleware(
@@ -216,20 +304,6 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     async def api_health() -> dict[str, Any]:
         return await check_health(app.state.station)
-
-    @app.get("/api/llm/status")
-    async def api_llm_status() -> dict[str, Any]:
-        return ollama_manager.status()
-
-    @app.post("/api/llm/ensure")
-    async def api_llm_ensure() -> dict[str, Any]:
-        s = app.state.station
-        if not s.ollama_auto_pull:
-            raise HTTPException(
-                status_code=400,
-                detail="ollama_auto_pull is disabled in station.yaml",
-            )
-        return await ollama_manager.ensure_model(s.ollama_base_url, s.ollama_model)
 
     @app.get("/api/languages")
     async def api_languages() -> dict[str, Any]:
@@ -271,11 +345,10 @@ def create_app() -> FastAPI:
             "buffer_target": s.buffer_target,
             "song_duration_sec": s.song_duration_sec,
             "kokoro_voice": orch.station.kokoro_voice,
-            "ollama_model": s.ollama_model,
-            "ollama_auto_pull": s.ollama_auto_pull,
-            "llm_pull": ollama_manager.status(),
-            "cover_backend": getattr(s, "cover_backend", "sd_turbo"),
-            "cover_auto_download": getattr(s, "cover_auto_download", True),
+            "vllm_text_model": s.vllm_text_model,
+            "vllm_base_url": s.vllm_base_url,
+            "cover_backend": s.cover_backend,
+            "cover_auto_download": s.cover_auto_download,
             "cover_model": cover_model_status(),
             "self_contained": True,
         }

@@ -22,3 +22,16 @@ lyrics_skeleton: |
 dj_tone: rock-radio gravel with respect for heavy music
 bpm: 150
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: high
+typcial_moods:
+  - aggressive
+  - dark
+  - powerful
+  - intense
+emotional_arcs:
+  - rage_to_catharsis
+  - darkness_to_light
+  - inner_strength
+  - defiance

@@ -124,7 +124,7 @@ def check_config() -> Check:
             "Config",
             True,
             f"station={station.name!r} genres={len(genres)} "
-            f"llm={station.ollama_base_url} model={station.ollama_model}",
+            f"vllm={station.vllm_base_url} model={station.vllm_text_model}",
         )
     except Exception as exc:  # noqa: BLE001
         return Check(
@@ -180,30 +180,28 @@ def check_acestep_api() -> Check:
 
 async def check_llm() -> Check:
     try:
-        from airadio.clients.ollama import check_ollama
+        from airadio.clients.vllm_unified import check_vllm
         from airadio.config import load_station
 
         station, _ = load_station()
-        result = await check_ollama(station.ollama_base_url, station.ollama_model)
+        result = await check_vllm(station.vllm_base_url, station.vllm_text_model)
         if result.get("ok"):
-            return Check("LLM (local)", True, result.get("detail", "ok"))
+            return Check("vLLM (text+audio)", True, result.get("detail", "ok"))
         return Check(
-            "LLM (local)",
+            "vLLM (text+audio)",
             False,
             result.get("detail", "unreachable"),
-            "Start a local OpenAI-compatible LLM, then match config/station.yaml:\n"
-            f"  ollama_base_url: {station.ollama_base_url}\n"
-            f"  ollama_model:    {station.ollama_model}\n"
-            "Examples:\n"
-            "  ollama serve && ollama pull qwen2.5:7b\n"
-            "  # or llama-server with a GGUF on the same base URL",
+            "Start vLLM (auto-starts in app or manual):\n"
+            "  Option 1 (auto): ./start.sh  (app starts vLLM internally)\n"
+            "  Option 2 (manual): bash scripts/launch_vllm.sh\n"
+            "Models download on first use (~9GB total).",
         )
     except Exception as exc:  # noqa: BLE001
         return Check(
-            "LLM (local)",
+            "vLLM (text+audio)",
             False,
             str(exc),
-            "Start Ollama / llama-server and fix config/station.yaml",
+            "Start vLLM: ./start.sh (auto) or bash scripts/launch_vllm.sh (manual)",
         )
 
 

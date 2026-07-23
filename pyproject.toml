@@ -22,6 +22,8 @@ dependencies = [
   "torch",
   "imageio-ffmpeg>=0.5.0",   # ships ffmpeg binary inside the venv
   "espeakng-loader>=0.2.0",  # ships libespeak-ng inside the venv for Kokoro
+  "orpheus-speech>=0.0.0",   # Orpheus TTS (3B model, requires vllm)
+  "vllm>=0.7.3",             # LLM inference engine (required for Orpheus)
 ]
 
 [project.optional-dependencies]

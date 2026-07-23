@@ -1,4 +1,4 @@
-"""Kokoro-82M voice catalog for the radio host picker."""
+"""Voice catalog and DJ personality → voice mappings."""
 
 from __future__ import annotations
 
@@ -13,11 +13,25 @@ class VoiceInfo:
     gender: str  # female | male
     grade: str = ""
     notes: str = ""
+    backend: str = "kokoro"  # or "orpheus"
 
 
-# Primary English hosts (best supported for this station's English DJ)
+# Orpheus voices (8 total, trained for natural radio speech)
+# Recommend for DJ talk segments: natural intonation, emotion support, conversational
+ORPHEUS_VOICES: list[VoiceInfo] = [
+    VoiceInfo("orpheus_tara", "Tara (Orpheus)", "American English", "female", backend="orpheus", notes="Clear, engaging, conversational"),
+    VoiceInfo("orpheus_leo", "Leo (Orpheus)", "American English", "male", backend="orpheus", notes="Deep, authoritative, professional"),
+    VoiceInfo("orpheus_dan", "Dan (Orpheus)", "American English", "male", backend="orpheus", notes="Warm, friendly"),
+    VoiceInfo("orpheus_jess", "Jess (Orpheus)", "American English", "female", backend="orpheus", notes="Energetic, youthful"),
+    VoiceInfo("orpheus_mia", "Mia (Orpheus)", "American English", "female", backend="orpheus", notes="Smooth, professional"),
+    VoiceInfo("orpheus_zac", "Zac (Orpheus)", "American English", "male", backend="orpheus", notes="Casual, laid-back"),
+    VoiceInfo("orpheus_leah", "Leah (Orpheus)", "American English", "female", backend="orpheus", notes="Softer, intimate"),
+    VoiceInfo("orpheus_zoe", "Zoe (Orpheus)", "American English", "female", backend="orpheus", notes="Bright, upbeat"),
+]
+
+# Primary English hosts (Kokoro — for backward compatibility / fallback)
 # Source: https://huggingface.co/hexgrad/Kokoro-82M VOICES.md
-VOICES: list[VoiceInfo] = [
+VOICES: list[VoiceInfo] = ORPHEUS_VOICES + [
     # American female
     VoiceInfo("af_heart", "Heart", "American English", "female", "A", "Warm default"),
     VoiceInfo("af_alloy", "Alloy", "American English", "female", "C"),
@@ -54,8 +68,48 @@ VOICES: list[VoiceInfo] = [
 
 VOICE_BY_ID = {v.id: v for v in VOICES}
 
+# Mapping: DJ personality → Orpheus voice recommendation
+# Used to pick the best voice for a DJ personality
+DJ_VOICE_MAP = {
+    # Female-leaning hosts
+    "rex": "orpheus_leo",  # Can be overridden per DJ in config
+    "default_female": "orpheus_tara",
+    "default_male": "orpheus_leo",
+}
+
+
+def orpheus_voice_id(voice_name: str) -> str:
+    """Convert Orpheus voice name (e.g., 'leo') to voice_id (e.g., 'orpheus_leo')."""
+    if not voice_name:
+        return "orpheus_leo"
+    if voice_name.startswith("orpheus_"):
+        return voice_name
+    return f"orpheus_{voice_name.lower()}"
+
+
+def get_dj_voice(dj_id: str, gender: str = "male") -> str:
+    """
+    Get recommended Orpheus voice for a DJ based on personality.
+
+    Args:
+        dj_id: DJ identifier from config/djs.yaml
+        gender: Hint from DJ profile ("male" or "female")
+
+    Returns:
+        Orpheus voice name (without "orpheus_" prefix): tara, leo, etc.
+    """
+    if dj_id in DJ_VOICE_MAP:
+        voice_full = DJ_VOICE_MAP[dj_id]
+        return voice_full.replace("orpheus_", "")
+
+    # Default by gender
+    default_key = "default_female" if gender.lower() == "female" else "default_male"
+    voice_full = DJ_VOICE_MAP.get(default_key, "orpheus_leo")
+    return voice_full.replace("orpheus_", "")
+
 
 def list_voices() -> list[dict]:
+    """List all available voices (Kokoro + Orpheus)."""
     return [
         {
             "id": v.id,
@@ -64,10 +118,12 @@ def list_voices() -> list[dict]:
             "gender": v.gender,
             "grade": v.grade,
             "notes": v.notes,
+            "backend": v.backend,
         }
         for v in VOICES
     ]
 
 
 def is_known_voice(voice_id: str) -> bool:
+    """Check if voice_id is known (Kokoro or Orpheus)."""
     return voice_id in VOICE_BY_ID

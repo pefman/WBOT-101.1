@@ -20,3 +20,16 @@ lyrics_skeleton: |
 dj_tone: late-night club host
 bpm: 128
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: high
+typcial_moods:
+  - hypnotic
+  - energetic
+  - mysterious
+  - euphoric
+emotional_arcs:
+  - confusion_to_clarity
+  - loneliness_to_freedom
+  - discovery
+  - yearning

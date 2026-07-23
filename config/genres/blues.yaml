@@ -21,3 +21,16 @@ lyrics_skeleton: |
 dj_tone: warm late-night host who knows the blues
 bpm: 80
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: medium
+typcial_moods:
+  - soulful
+  - melancholic
+  - raw
+  - heartfelt
+emotional_arcs:
+  - heartbreak
+  - struggle
+  - redemption
+  - acceptance

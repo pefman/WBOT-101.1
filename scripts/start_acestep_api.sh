@@ -25,18 +25,27 @@ export ACESTEP_OFFLOAD_TO_CPU="${ACESTEP_OFFLOAD_TO_CPU:-false}"
 
 LOG="${ROOT}/data/acestep-api.log"
 mkdir -p "$ROOT/data"
+
+# Avoid stacking orphans: always clear any previous instance first.
+if curl -sf "http://${ACESTEP_API_HOST}:${ACESTEP_API_PORT}/health" >/dev/null 2>&1 \
+  || [[ -f "$ROOT/data/acestep-api.pid" ]]; then
+  echo "Stopping any existing ACE-Step API before start…"
+  bash "$ROOT/scripts/stop_acestep_api.sh" || true
+fi
+
 echo "Starting ACE-Step API on ${ACESTEP_API_HOST}:${ACESTEP_API_PORT}"
 echo "Log: $LOG"
 echo "Models: DiT=${ACESTEP_CONFIG_PATH} LM=${ACESTEP_LM_MODEL_PATH}"
 
+# New session so stop can kill the whole process group (uv + python child).
 # Prefer official entrypoint
 if uv run --help >/dev/null 2>&1; then
-  nohup uv run acestep-api >>"$LOG" 2>&1 &
+  setsid nohup uv run acestep-api >>"$LOG" 2>&1 &
 else
-  nohup python -m acestep.api_server >>"$LOG" 2>&1 &
+  setsid nohup python -m acestep.api_server >>"$LOG" 2>&1 &
 fi
 echo $! >"$ROOT/data/acestep-api.pid"
-echo "PID $(cat "$ROOT/data/acestep-api.pid")"
+echo "PID $(cat "$ROOT/data/acestep-api.pid") (process group leader)"
 
 # Wait for health
 for i in $(seq 1 60); do

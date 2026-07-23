@@ -23,3 +23,16 @@ lyrics_skeleton: |
 dj_tone: bright friendly pop host
 bpm: 115
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: high
+typcial_moods:
+  - upbeat
+  - joyful
+  - relatable
+  - catchy
+emotional_arcs:
+  - loneliness_to_freedom
+  - confusion_to_clarity
+  - yearning
+  - hope

@@ -21,3 +21,16 @@ lyrics_skeleton: |
 dj_tone: confident street-smart host
 bpm: 90
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: high
+typcial_moods:
+  - aggressive
+  - reflective
+  - raw
+  - rhythmic
+emotional_arcs:
+  - struggle_to_triumph
+  - anger_to_acceptance
+  - raw_honesty
+  - social_commentary

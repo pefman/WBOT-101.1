@@ -12,9 +12,13 @@ from typing import Callable
 from airadio.art.cover import generate_cover
 from airadio.audio.process import loudnorm_ffmpeg, probe_duration_ms
 from airadio.clients.acestep import generate_song
-from airadio.clients.ollama import ollama_chat, unload_model
+from airadio.clients.vllm_unified import vllm_generate_text, unload_vllm_model
 from airadio.languages import ace_vocal_language, get_language, language_instruction
 from airadio.models_types import Genre, Segment, StationConfig
+from airadio.songwriting import (
+    apply_songwriting_standards,
+    lyric_generation_prompt,
+)
 
 log = logging.getLogger(__name__)
 
@@ -96,12 +100,11 @@ async def _chat_json(
     max_tokens: int,
     timeout: float = 180.0,
 ) -> dict:
-    raw = await ollama_chat(
-        station.ollama_base_url,
-        station.ollama_model,
+    raw = await vllm_generate_text(
+        station.vllm_base_url,
+        station.vllm_text_model,
         system,
         user,
-        timeout=timeout,
         temperature=temperature,
         max_tokens=max_tokens,
     )
@@ -109,12 +112,11 @@ async def _chat_json(
         return _parse_json_blob(raw)
     except (json.JSONDecodeError, ValueError) as exc:
         log.warning("  [song] JSON parse failed (%s); repair retry…", exc)
-        repair = await ollama_chat(
-            station.ollama_base_url,
-            station.ollama_model,
+        repair = await vllm_generate_text(
+            station.vllm_base_url,
+            station.vllm_text_model,
             "You fix broken JSON. Output ONLY valid JSON. No markdown.",
             "Repair this into valid JSON only:\n\n" + raw[:4000],
-            timeout=90.0,
             temperature=0.2,
             max_tokens=max_tokens,
         )
@@ -240,17 +242,47 @@ async def _compose_lyrics(
     title: str,
     skeleton: str,
 ) -> str:
-    """Fill ACE-style [Section] skeleton with short rhythmic lines."""
+    """Fill ACE-style [Section] skeleton with short rhythmic lines using songwriting guidelines."""
     lang = get_language(station.language)
-    system = (
-        'Write song lyrics. Output ONLY JSON: {"lyrics":"..."}. '
-        f"Sung lines in {lang.prompt_name}. "
-        "Short rhythmic lines (about 6–10 syllables). No long sentences."
+
+    # Extract songwriting guidance from genre config
+    energy = getattr(genre, "energy_level", "medium") or "medium"
+    mood = (
+        getattr(genre, "typical_moods", [])
+        or ["evocative"]
     )
-    user = f"""Write lyrics for:
+    if isinstance(mood, list) and mood:
+        mood = mood[0]
+    else:
+        mood = "evocative"
+
+    arcs = getattr(genre, "emotional_arcs", []) or ["discovery"]
+    arc = arcs[0] if isinstance(arcs, list) and arcs else "discovery"
+
+    # Build rich system prompt with dynamic songwriting guidelines
+    songwriting_guidance = lyric_generation_prompt(
+        genre_id=genre.id,
+        mood=mood,
+        energy=energy,
+        arc=arc,
+        section="full_song",
+        title=title,
+        artist=artist,
+    )
+
+    system = (
+        f"Write song lyrics for {artist} — {title}.\n"
+        f"Output ONLY JSON: {{'lyrics':'...'}}\n"
+        f"Sung lines in {lang.prompt_name}. "
+        f"Short rhythmic lines (about 6–10 syllables).\n\n"
+        f"{songwriting_guidance}\n\n"
+        f"Output format: JSON with 'lyrics' key containing full lyrics with [Section] tags preserved."
+    )
+    user = f"""Write complete lyrics for:
 Artist: {artist}
 Title: {title}
-Genre: {genre.name}
+Genre: {genre.name} ({energy} energy, {mood} mood)
+
 {language_instruction(station.language)}
 
 Use exactly these section headers, in order. Under each [Verse]/[Chorus]/[Bridge]/
@@ -258,11 +290,15 @@ Use exactly these section headers, in order. Under each [Verse]/[Chorus]/[Bridge
 
 {skeleton}
 
-Rules:
+Follow all songwriting guidelines from the system prompt above:
+- Each section has a specific purpose
+- Show emotion through imagery, don't name it
+- Keep lines singable (short, natural phrases)
+- Avoid clichés or reinvent them
+- Make the chorus the emotional payoff
 - Keep [Section] tags as written
-- Sticky chorus hook, repeated
-- No stage directions, no markdown, no placeholders like "line" or "hook"
-- JSON only
+- No stage directions, markdown, or placeholders
+- JSON format only
 """
     data = await _chat_json(
         station,
@@ -275,7 +311,20 @@ Rules:
     lyrics = str(data.get("lyrics") or "").strip()
     if not lyrics or len(lyrics) < 20:
         raise RuntimeError(f"Song LLM returned empty/short lyrics: {data!r}"[:300])
+
+    # Validate against songwriting standards
+    quality = apply_songwriting_standards(lyrics, "full_song", energy)
+    if quality.get("singability_score") in ("excellent", "good"):
+        log.info(
+            "  [song] Lyrics quality check passed: %s", quality.get("summary")
+        )
+    else:
+        log.warning(
+            "  [song] Lyrics quality check: %s", quality.get("summary")
+        )
+
     return lyrics
+
 
 
 async def _compose_track(
@@ -366,7 +415,7 @@ async def produce_song(
     # Free VRAM for ACE; reloads automatically on next talk
     log.info("  [song] unloading LLM so ACE can use the GPU…")
     _stage("song_unload_llm", "Freeing GPU for music model…")
-    await unload_model(station.ollama_base_url, station.ollama_model)
+    await unload_vllm_model(station.vllm_base_url)
 
     vlang = ace_vocal_language(station.language)
     log.info(
@@ -441,8 +490,8 @@ async def produce_song(
     cover_path: Path | None = None
     cover_file = out_dir / f"{seg_id}_cover.png"
     try:
-        backend = str(getattr(station, "cover_backend", "sd_turbo") or "sd_turbo")
-        steps = int(getattr(station, "cover_sd_steps", 2) or 2)
+        backend = station.cover_backend
+        steps = station.cover_sd_steps
         log.info("  [song] cover art (%s)…", backend)
         generate_cover(
             cover_file,

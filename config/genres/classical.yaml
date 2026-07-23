@@ -19,3 +19,16 @@ lyrics_skeleton: |
 dj_tone: calm refined host
 bpm: 72
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: medium
+typcial_moods:
+  - contemplative
+  - majestic
+  - emotional
+  - intricate
+emotional_arcs:
+  - journey
+  - triumph
+  - melancholy
+  - transcendence

@@ -21,3 +21,16 @@ lyrics_skeleton: |
 dj_tone: warm dance-floor host
 bpm: 100
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: high
+typcial_moods:
+  - passionate
+  - rhythmic
+  - celebratory
+  - romantic
+emotional_arcs:
+  - celebration
+  - passion
+  - heartbreak
+  - fiesta

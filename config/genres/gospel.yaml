@@ -21,3 +21,16 @@ lyrics_skeleton: |
 dj_tone: uplifting Sunday host
 bpm: 90
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: high
+typcial_moods:
+  - uplifting
+  - spiritual
+  - joyful
+  - powerful
+emotional_arcs:
+  - faith_to_conviction
+  - struggle_to_grace
+  - praise
+  - hope

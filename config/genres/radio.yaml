@@ -17,3 +17,16 @@ lyrics_skeleton: |
 dj_tone: freeform radio host who loves every crate
 bpm: 120
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: medium
+typcial_moods:
+  - timeless
+  - universal
+  - engaging
+  - classic
+emotional_arcs:
+  - discovery
+  - nostalgia
+  - connection
+  - timelessness

@@ -91,6 +91,9 @@ class Orchestrator:
         # Listener talk requests (FIFO)
         self._talk_requests: deque[str] = deque(maxlen=20)
 
+        # Cache for _recent_song_pairs (invalidated when history/played_songs change)
+        self._recent_pairs_cache: list[tuple[str, str]] | None = None
+
         self._worker_task: asyncio.Task | None = None
         self._playback_task: asyncio.Task | None = None
         self._running = False
@@ -106,7 +109,7 @@ class Orchestrator:
 
         self.library = SongLibrary.load(
             station.data_dir,
-            max_songs=int(getattr(station, "library_max_songs", 40) or 40),
+            max_songs=station.library_max_songs,
         )
         # Occasional GC counter
         self._gens_since_gc: int = 0
@@ -194,6 +197,28 @@ class Orchestrator:
             "pending_requests": len(self._talk_requests),
         }
 
+    async def _pre_package_with_retry(self, first: Segment, nxt: Segment | None) -> None:
+        """Pre-package first segment with retry logic (2 attempts, exponential backoff)."""
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
+            try:
+                await asyncio.to_thread(self._prepare_stream_wav, first, nxt)
+                log.info("Pre-package succeeded on attempt %d", attempt)
+                return
+            except Exception as exc:  # noqa: BLE001
+                if attempt < max_attempts:
+                    backoff_sec = 2 ** (attempt - 1)  # 1s, 2s
+                    log.warning(
+                        "Pre-package attempt %d failed: %s (retrying in %ds)",
+                        attempt,
+                        exc,
+                        backoff_sec,
+                    )
+                    await asyncio.sleep(backoff_sec)
+                else:
+                    log.error("Pre-package failed after %d attempts: %s", max_attempts, exc)
+                    raise RuntimeError(f"Failed to package audio stream: {exc}") from exc
+
     async def play(self) -> None:
         await self.start()
         self.state = RadioState.BUFFERING
@@ -221,12 +246,9 @@ class Orchestrator:
         if self.ready:
             self._set_stage("packaging", "Packaging audio stream…")
             log.info("▶ Packaging first stream segment for air…")
-            try:
-                first = self.ready[0]
-                nxt = self.ready[1] if len(self.ready) > 1 else None
-                await asyncio.to_thread(self._prepare_stream_wav, first, nxt)
-            except Exception as exc:  # noqa: BLE001
-                log.warning("Pre-package failed: %s", exc)
+            first = self.ready[0]
+            nxt = self.ready[1] if len(self.ready) > 1 else None
+            await self._pre_package_with_retry(first, nxt)
 
         self.state = RadioState.PLAYING
         self.buffering_message = ""
@@ -350,7 +372,7 @@ class Orchestrator:
             "dj_blurb": self.dj_blurb,
             "kokoro_voice": self.station.kokoro_voice,
             "enabled_genres": list(self.station.enabled_genres),
-            "crossfade_sec": float(getattr(self.station, "crossfade_sec", 0) or 0),
+            "crossfade_sec": self.station.crossfade_sec,
             "language": self.station.language,
             # Client must only re-attach audio when this changes (not on meta handoff)
             "stream_id": self.stream_id,
@@ -379,6 +401,7 @@ class Orchestrator:
         if self._played_songs and self._played_songs[-1].id == seg.id:
             return
         self._played_songs.append(seg)
+        self._recent_pairs_cache = None  # Invalidate cache
         try:
             self.library.remember(seg)
         except Exception as exc:  # noqa: BLE001
@@ -455,7 +478,10 @@ class Orchestrator:
         }
 
     def _recent_song_pairs(self) -> list[tuple[str, str]]:
-        """Artist/title pairs from history + played (for anti-repeat prompts)."""
+        """Artist/title pairs from history + played (for anti-repeat prompts). Cached."""
+        if self._recent_pairs_cache is not None:
+            return self._recent_pairs_cache
+        
         seen: set[str] = set()
         out: list[tuple[str, str]] = []
         for seg in list(self._history) + list(self._played_songs):
@@ -470,7 +496,9 @@ class Orchestrator:
                 continue
             seen.add(key)
             out.append((artist, title))
-        return out[-20:]
+        result = out[-20:]
+        self._recent_pairs_cache = result
+        return result
 
     def set_dj(
         self,
@@ -639,10 +667,8 @@ class Orchestrator:
             garbage_collect_segments(
                 self.segments_dir,
                 protect=protect,
-                max_age_hours=float(
-                    getattr(self.station, "segment_max_age_hours", 48) or 48
-                ),
-                max_files=int(getattr(self.station, "segment_max_files", 200) or 200),
+                max_age_hours=self.station.segment_max_age_hours,
+                max_files=self.station.segment_max_files,
             )
         except Exception as exc:  # noqa: BLE001
             log.warning("Segment GC failed: %s", exc)
@@ -685,7 +711,7 @@ class Orchestrator:
                     reair = self.library.pick_reair(
                         enabled_genres=list(self.station.enabled_genres),
                         exclude_ids=exclude,
-                        chance=float(getattr(self.station, "reair_chance", 0.28) or 0),
+                        chance=self.station.reair_chance,
                     )
                     if reair is not None:
                         self._set_stage(
@@ -788,6 +814,7 @@ class Orchestrator:
                 self.ready.append(seg)
                 self._last_enqueued_kind = seg.kind
                 self._history.append(seg)
+                self._recent_pairs_cache = None  # Invalidate cache
                 if seg.kind == "talk" and seg.text:
                     self.recent_talk_texts.append(seg.text)
                 dur = (seg.duration_ms or 0) / 1000.0
@@ -1112,7 +1139,7 @@ class Orchestrator:
                         elapsed = min(elapsed, phase_ms / 1000.0)
                     # Snappy bed — host arrives almost immediately
                     tail = 1.35 if from_seg.kind == "song" else 0.9
-                    bed = float(getattr(self.station, "outro_bed_gain", 0.28) or 0.28)
+                    bed = self.station.outro_bed_gain
                     if from_seg.kind == "talk":
                         bed = min(bed, 0.35)
                     tail_ms, total_ms, _tail = await asyncio.to_thread(
@@ -1263,10 +1290,10 @@ class Orchestrator:
         Talk→song: bed under last words + rest of track (no player reload).
         Song→talk: DJ opens over the last outro seconds while music ducks.
         """
-        overlap = float(getattr(self.station, "crossfade_sec", 0) or 0)
-        bed_gain = float(getattr(self.station, "crossfade_bed_gain", 0.55) or 0.55)
-        outro = float(getattr(self.station, "outro_crossfade_sec", 0) or 0)
-        outro_bed = float(getattr(self.station, "outro_bed_gain", 0.32) or 0.32)
+        overlap = self.station.crossfade_sec
+        bed_gain = self.station.crossfade_bed_gain
+        outro = self.station.outro_crossfade_sec
+        outro_bed = self.station.outro_bed_gain
 
         if (
             seg.kind == "talk"

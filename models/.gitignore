@@ -1,0 +1,4 @@
+# vLLM models downloaded at runtime
+# All model files are ignored; re-download on fresh clone
+*
+!.gitignore

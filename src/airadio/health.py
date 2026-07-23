@@ -3,22 +3,22 @@ from __future__ import annotations
 from airadio.audio.process import ffmpeg_available, ffmpeg_exe
 from airadio.clients.acestep import acestep_available
 from airadio.clients.kokoro import kokoro_available
-from airadio.clients.ollama import check_ollama
-from airadio.clients.ollama_pull import manager as ollama_manager
+from airadio.clients.orpheus import orpheus_available
+from airadio.clients.vllm_unified import check_vllm
 from airadio.models_types import StationConfig
 from airadio.paths import ensure_bundled_espeak
 
 
 async def check_health(station: StationConfig) -> dict:
-    ollama = await check_ollama(station.ollama_base_url, station.ollama_model)
-    pull = ollama_manager.status()
+    vllm = await check_vllm(station.vllm_base_url, station.vllm_text_model)
     kokoro_ok, kokoro_detail = kokoro_available()
+    orpheus_ok, orpheus_detail = orpheus_available()
     acestep_ok, acestep_detail = acestep_available()
     ff_ok = ffmpeg_available()
     espeak = ensure_bundled_espeak()
 
     # Cover art status (non-blocking for station ok — procedural fallback exists)
-    cover_backend = str(getattr(station, "cover_backend", "sd_turbo") or "procedural")
+    cover_backend = station.cover_backend
     cover_info: dict = {
         "ok": True,
         "detail": f"backend={cover_backend}",
@@ -54,8 +54,9 @@ async def check_health(station: StationConfig) -> dict:
             }
 
     components = {
-        "llm": ollama,
+        "vllm": vllm,
         "kokoro": {"ok": kokoro_ok, "detail": kokoro_detail},
+        "orpheus": {"ok": orpheus_ok, "detail": orpheus_detail},
         "acestep": {"ok": acestep_ok, "detail": acestep_detail},
         "ffmpeg": {
             "ok": ff_ok,
@@ -67,13 +68,12 @@ async def check_health(station: StationConfig) -> dict:
         },
         "cover": cover_info,
     }
-    # LLM is required — no silent fallback scripts
-    ok = ollama["ok"] and acestep_ok and kokoro_ok and ff_ok
+    # vLLM is required — no silent fallback scripts
+    ok = vllm["ok"] and acestep_ok and orpheus_ok and ff_ok
     return {
         "ok": ok,
         "degraded": False,
-        "llm_mode": ollama.get("mode") or ("live" if ollama["ok"] else "error"),
-        "llm_pull": pull,
+        "llm_mode": vllm.get("mode") or ("live" if vllm["ok"] else "error"),
         "cover_model": cover_info,
         "components": components,
         "self_contained": True,

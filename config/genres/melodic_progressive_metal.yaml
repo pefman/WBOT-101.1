@@ -23,3 +23,16 @@ lyrics_skeleton: |
 dj_tone: thoughtful progressive-metal host who respects musicianship
 bpm: 130
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: high
+typcial_moods:
+  - introspective
+  - powerful
+  - complex
+  - emotional
+emotional_arcs:
+  - confusion_to_clarity
+  - inner_turmoil
+  - transcendence
+  - enlightenment

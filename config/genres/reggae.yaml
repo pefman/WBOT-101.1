@@ -21,3 +21,16 @@ lyrics_skeleton: |
 dj_tone: laid-back island host
 bpm: 80
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: low
+typcial_moods:
+  - uplifting
+  - peaceful
+  - spiritual
+  - groovy
+emotional_arcs:
+  - unity
+  - freedom
+  - consciousness
+  - joy

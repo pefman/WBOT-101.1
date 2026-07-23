@@ -21,3 +21,16 @@ lyrics_skeleton: |
 dj_tone: classic FM rock host
 bpm: 125
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: high
+typcial_moods:
+  - energetic
+  - defiant
+  - anthemic
+  - raw
+emotional_arcs:
+  - anger_to_acceptance
+  - fear_to_courage
+  - discovery
+  - hope_to_heartbreak

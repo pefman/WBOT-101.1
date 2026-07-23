@@ -13,10 +13,11 @@ from typing import Callable
 import yaml
 
 from airadio.audio.process import loudnorm_ffmpeg, probe_duration_ms
-from airadio.clients.kokoro import synthesize_kokoro
-from airadio.clients.ollama import ollama_chat
+from airadio.clients.orpheus import synthesize_orpheus, unload_orpheus_model
+from airadio.clients.vllm_unified import vllm_generate_text, unload_vllm_model
 from airadio.config import default_config_dir
 from airadio.models_types import Segment, StationConfig
+from airadio.voices import get_dj_voice
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +33,42 @@ BANNED_WHOLE_LINES = (
     "keep you company through the night",
     "you're tuning in",
 )
+
+
+def _emotions_for_personality(personality: str | None, mode: str | None = None) -> list[str]:
+    """
+    Pick emotion tags based on DJ personality and talk mode.
+    
+    Emotions: laugh, chuckle, sigh, cough, sniff, groan, yawn, gasp
+    """
+    if not personality:
+        personality = ""
+    
+    personality_lower = personality.lower()
+    mode_lower = (mode or "").lower()
+    
+    # Map personality traits to emotion combinations
+    if "cynical" in personality_lower or "sarcastic" in personality_lower:
+        return ["sigh", "chuckle"]
+    elif "energetic" in personality_lower or "upbeat" in personality_lower or "enthusiastic" in personality_lower:
+        return ["laugh", "gasp"]
+    elif "cool" in personality_lower or "laid-back" in personality_lower:
+        return ["chuckle"]
+    elif "warm" in personality_lower or "friendly" in personality_lower:
+        return ["chuckle", "laugh"]
+    elif "thoughtful" in personality_lower or "reflective" in personality_lower:
+        return ["sigh"]
+    
+    # Map mode to default emotions if personality unclear
+    if mode_lower == "news":
+        return ["chuckle", "sigh"]  # News is usually witty but aware
+    elif mode_lower == "bridge":
+        return ["chuckle", "laugh"]  # Warm bridges
+    elif mode_lower == "silence_break":
+        return []  # Silence is silence
+    
+    # Default neutral
+    return ["chuckle"]
 
 
 def _trim_words(text: str, max_words: int) -> str:
@@ -257,10 +294,10 @@ async def produce_talk(
     host_name = station.host_name
     voice_id = station.kokoro_voice
     system_prompt = station.system_prompt
-    ollama_base = station.ollama_base_url
-    ollama_model = station.ollama_model
+    vllm_base = station.vllm_base_url
+    vllm_model = station.vllm_text_model
     talk_max = station.talk_max_words
-    news_chance = float(getattr(station, "news_bit_chance", 0) or 0)
+    news_chance = station.news_bit_chance
 
     mode, mode_instruction, mode_max = _pick_mode()
     max_words = mode_max if mode_max is not None else talk_max
@@ -320,12 +357,12 @@ async def produce_talk(
         host_name,
         mode,
         max_words,
-        ollama_model,
+        vllm_model,
     )
     _stage("talk_writing", f"Writing DJ script ({host_name})…")
-    script = await ollama_chat(
-        ollama_base,
-        ollama_model,
+    script = await vllm_generate_text(
+        vllm_base,
+        vllm_model,
         system_prompt,
         user,
         temperature=1.05,
@@ -341,9 +378,9 @@ async def produce_talk(
             + "\n\nRewrite completely. Different opening word. "
             "No stay-tuned / good-evening-folks clichés. Start mid-thought."
         )
-        script = await ollama_chat(
-            ollama_base,
-            ollama_model,
+        script = await vllm_generate_text(
+            vllm_base,
+            vllm_model,
             system_prompt,
             retry_user,
             temperature=1.1,
@@ -361,14 +398,40 @@ async def produce_talk(
         "…" if len(script) > 100 else "",
     )
 
-    log.info("  [talk] 2/3 Kokoro TTS speaking (voice=%s)…", voice_id)
-    _stage("talk_speaking", f"Speaking with voice {voice_id}…")
+    log.info("  [talk] 2/3 Orpheus TTS speaking…")
+    _stage("talk_speaking", "Speaking with Orpheus…")
+    
     try:
+        # Get DJ personality for emotion injection
+        dj_personality = ""
+        dj_gender = "male"
+        try:
+            dj_config_file = default_config_dir() / "djs.yaml"
+            if dj_config_file.is_file():
+                with open(dj_config_file) as f:
+                    dj_config = yaml.safe_load(f) or {}
+                    if host_name in dj_config:
+                        dj_info = dj_config.get(host_name, {})
+                        dj_personality = dj_info.get("tone", "") or dj_info.get("personality", "")
+                        dj_gender = dj_info.get("gender", "male")
+        except Exception as exc:  # noqa: BLE001
+            log.debug(f"Could not load DJ personality: {exc}")
+        
+        # Pick emotion tags based on personality + mode
+        emotions = _emotions_for_personality(dj_personality or dj_tone, mode)
+        
+        # Get Orpheus voice for DJ
+        orpheus_voice = get_dj_voice(host_name.lower(), dj_gender)
+        
+        # Synthesize with Orpheus
         duration_ms = await asyncio.to_thread(
-            synthesize_kokoro, script, voice_id, raw_wav
+            synthesize_orpheus, script, orpheus_voice, raw_wav, emotions
         )
+        
+        # Unload Orpheus model to free VRAM before music generation
+        await asyncio.to_thread(unload_orpheus_model)
     except Exception as exc:  # noqa: BLE001
-        raise RuntimeError(f"Kokoro TTS failed: {exc}") from exc
+        raise RuntimeError(f"Orpheus TTS failed: {exc}") from exc
 
     log.info("  [talk] 3/3 Loudnorm / finalize (%.1fs raw)…", duration_ms / 1000.0)
     _stage("talk_finalize", "Normalizing talk audio…")

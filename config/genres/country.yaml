@@ -21,3 +21,16 @@ lyrics_skeleton: |
 dj_tone: friendly road-trip host
 bpm: 100
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: medium
+typcial_moods:
+  - nostalgic
+  - heartfelt
+  - narrative
+  - homey
+emotional_arcs:
+  - heartbreak_to_healing
+  - small_town_escape
+  - roots_and_belonging
+  - lost_love_remembered

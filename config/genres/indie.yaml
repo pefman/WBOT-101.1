@@ -21,3 +21,16 @@ lyrics_skeleton: |
 dj_tone: cool college-radio host
 bpm: 110
 duration_sec: 165
+
+# Songwriting guidelines (dynamic)
+energy_level: medium
+typcial_moods:
+  - melancholic
+  - wistful
+  - bittersweet
+  - introspective
+emotional_arcs:
+  - loneliness_to_freedom
+  - confusion_to_clarity
+  - hope_to_heartbreak
+  - yearning
