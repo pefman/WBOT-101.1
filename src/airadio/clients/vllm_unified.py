@@ -63,6 +63,26 @@ async def ensure_vllm_running(
     log.info("  [vllm] starting process (model=%s)…", model)
     hf_home = os.environ.get("HF_HOME", str(Path.cwd() / "models" / "huggingface"))
     
+    # Try to free GPU memory by stopping ACE-Step if running
+    try:
+        result = subprocess.run(
+            ["lsof", "-ti:8001"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.stdout.strip():
+            ace_pids = result.stdout.strip().split("\n")
+            for pid in ace_pids:
+                if pid:
+                    try:
+                        subprocess.run(["kill", "-9", pid], timeout=1)
+                        log.info("  [vllm] killed ACE-Step (PID %s) to free GPU memory", pid)
+                    except Exception:  # noqa: BLE001
+                        pass
+    except Exception:  # noqa: BLE001
+        pass
+    
     try:
         proc = subprocess.Popen(
             [
@@ -71,11 +91,9 @@ async def ensure_vllm_running(
                 "vllm.entrypoints.openai.api_server",
                 f"--model={model}",
                 "--tensor-parallel-size=1",
-                "--gpu-memory-utilization=0.8",
+                "--gpu-memory-utilization=0.4",  # Further reduced from 0.6 to avoid OOM in high-contention environment
                 "--port=8000",
             ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
             env={**os.environ, "HF_HOME": hf_home},
             start_new_session=True,  # Detach from parent so it survives shell exit
         )

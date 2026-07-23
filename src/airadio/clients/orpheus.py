@@ -43,8 +43,7 @@ def get_orpheus_model() -> object:
         from orpheus_tts import OrpheusModel
 
         _model = OrpheusModel(
-            model_name="canopylabs/orpheus-tts-0.1-finetune-prod",
-            max_model_len=2048,
+            model_name="canopylabs/orpheus-tts-0.1-finetune-prod"
         )
         _model_device = device
         log.info("✓ Orpheus model loaded")
