@@ -15,6 +15,7 @@ warn()  { echo "${YLW}!!${RST}  $*"; }
 fail()  { echo "${RED}ERROR:${RST} $*" >&2; }
 
 STARTED_ACE=0
+VLLM_PID=""
 APP_PID=""
 ACE_PID_FILE="$ROOT/data/acestep-api.pid"
 
@@ -49,6 +50,25 @@ cleanup() {
   if [[ "$STARTED_ACE" -eq 1 ]]; then
     info "Stopping ACE-Step API…"
     bash "$ROOT/scripts/stop_acestep_api.sh" || true
+  fi
+  
+  # Stop vLLM if we started it
+  if [[ -n "${VLLM_PID}" ]]; then
+    if kill -0 "$VLLM_PID" 2>/dev/null; then
+      info "Stopping vLLM (PID $VLLM_PID)…"
+      kill -TERM "$VLLM_PID" 2>/dev/null || true
+      # Wait up to 3 seconds for graceful shutdown
+      local count=0
+      while kill -0 "$VLLM_PID" 2>/dev/null && [[ $count -lt 3 ]]; do
+        sleep 1
+        ((count++))
+      done
+      # Force kill if still running
+      if kill -0 "$VLLM_PID" 2>/dev/null; then
+        warn "vLLM did not stop gracefully, forcing…"
+        kill -9 "$VLLM_PID" 2>/dev/null || true
+      fi
+    fi
   fi
   
   # Kill any stray vLLM processes on the expected port
@@ -110,6 +130,7 @@ fi
 
 export KOKORO_DEVICE="${KOKORO_DEVICE:-cpu}"
 export PYTHONPATH="${ROOT}/src${PYTHONPATH:+:$PYTHONPATH}"
+export HF_HOME="${ROOT}/models/huggingface"
 
 # --- 2. Preflight (packages, ffmpeg, config, …) without ACE/LLM yet ----------
 info "Checking project install…"
@@ -141,18 +162,54 @@ else
   info "ACE-Step API already up on :8001"
 fi
 
-# --- 4. Full preflight including LLM ----------------------------------------
+# --- 4. vLLM: Check if running, start if needed ----------------------------
+info "Checking vLLM…"
+if ! curl -sf "http://127.0.0.1:8000/v1/models" >/dev/null 2>&1; then
+  info "vLLM not running — starting it in background…"
+  info "(Model download on first use: ~3.5GB, may take 2-5 min)"
+  # Start vLLM in background with a reasonable timeout; suppress verbose logs
+  VLLM_LOG_LEVEL=ERROR HF_HUB_VERBOSITY=critical \
+  timeout 600 python -m vllm.entrypoints.openai.api_server \
+    --model Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4 \
+    --tensor-parallel-size 1 \
+    --gpu-memory-utilization 0.8 \
+    --max-model-len 2048 \
+    --port 8000 \
+    >/dev/null 2>&1 &
+  VLLM_PID=$!
+  
+  # Wait for vLLM to be ready (with timeout)
+  local start_time=$(date +%s)
+  local max_wait=300  # 5 minutes
+  local ready=0
+  while [[ $(( $(date +%s) - start_time )) -lt $max_wait ]]; do
+    if curl -sf "http://127.0.0.1:8000/v1/models" >/dev/null 2>&1; then
+      ready=1
+      break
+    fi
+    sleep 2
+  done
+  
+  if [[ $ready -eq 0 ]]; then
+    fail "vLLM did not start within ${max_wait}s. Check GPU driver or VRAM."
+    exit 1
+  fi
+  info "vLLM started and ready on :8000"
+else
+  info "vLLM already running on :8000"
+fi
+
+# --- 5. Full preflight including LLM ----------------------------------------
 info "Checking LLM + ACE…"
 if ! python -m airadio.preflight; then
   fail "Dependencies not ready. Fix the FAIL items above, then re-run."
   exit 1
 fi
 
-# --- 5. Run app (auto-starts vLLM if needed) --------------------------------
+# --- 6. Run app -------------------------------------------------------
 HOST="${AIRADIO_HOST:-0.0.0.0}"
 PORT="${AIRADIO_PORT:-8888}"
 info "Starting radio on ${HOST}:${PORT}  (Ctrl-C to stop)"
-info "vLLM will be started internally or used if already running…"
 # Reachable on LAN when HOST=0.0.0.0 (default)
 if command -v hostname >/dev/null 2>&1; then
   for ip in $(hostname -I 2>/dev/null || true); do
