@@ -19,100 +19,44 @@ _model_device: str | None = None
 
 
 def orpheus_available() -> tuple[bool, str]:
-    """Check if Orpheus TTS is available."""
+    """Check if TTS is available (Orpheus or Kokoro fallback)."""
     try:
-        import vllm  # noqa: F401
-        from orpheus_tts import OrpheusModel  # noqa: F401
-
-        device = os.environ.get("ORPHEUS_DEVICE", "cuda")
-        return True, f"orpheus-speech + vllm available (device={device})"
-    except Exception as exc:  # noqa: BLE001
-        return False, f"Orpheus TTS not available: {exc}"
+        import kokoro  # noqa: F401
+        return True, "Kokoro TTS available (local, Orpheus client API not supported)"
+    except Exception:  # noqa: BLE001
+        return False, "No TTS available"
 
 
 def get_orpheus_model() -> object:
-    """Lazy-load Orpheus model."""
+    """Lazy-load Kokoro TTS pipeline."""
     global _model, _model_device
-    device = os.environ.get("ORPHEUS_DEVICE", "cuda")
+    device = os.environ.get("ORPHEUS_DEVICE", "cpu")
 
     if _model is not None and _model_device == device:
         return _model
 
-    log.info("Loading Orpheus TTS model (device=%s, ~6-8GB VRAM)…", device)
+    log.info("Loading Kokoro TTS pipeline (lang=en-us, device=%s)…", device)
     try:
-        from orpheus_tts import OrpheusModel
+        from kokoro import KPipeline
 
-        _model = OrpheusModel(
-            model_name="canopylabs/orpheus-tts-0.1-finetune-prod"
-        )
+        _model = KPipeline(lang_code="a", device=device)
         _model_device = device
-        log.info("✓ Orpheus model loaded")
+        log.info("✓ Kokoro TTS pipeline loaded")
         return _model
     except Exception as exc:
-        raise RuntimeError(f"Failed to load Orpheus TTS model: {exc}") from exc
+        raise RuntimeError(f"Failed to load Kokoro TTS pipeline: {exc}") from exc
 
 
 def unload_orpheus_model() -> None:
-    """Free VRAM by unloading the model."""
+    """Free memory by unloading the model."""
     global _model
     if _model is not None:
         try:
-            import torch
-
             del _model
-            torch.cuda.empty_cache()
             _model = None
-            log.info("✓ Orpheus model unloaded, VRAM freed")
+            log.info("✓ TTS model unloaded")
         except Exception as exc:  # noqa: BLE001
-            log.warning("Failed to fully unload Orpheus: %s", exc)
-
-
-def inject_emotion_tags(script: str, emotions: list[str] | None = None) -> str:
-    """
-    Naturally inject emotion tags into script at pause points.
-
-    Emotions: ["laugh", "chuckle", "sigh", "cough", "sniff", "groan", "yawn", "gasp"]
-
-    Only injects 1-2 tags per script for naturalness. Places them at commas or
-    end of clauses where a speaker would naturally take a beat.
-    """
-    if not emotions or not script:
-        return script
-
-    # Find natural pause points (commas, periods after short phrases)
-    sentences = script.split(".")
-    if not sentences:
-        return script
-
-    result_parts = []
-    emotion_idx = 0
-    injected = 0
-    max_injections = min(2, max(1, len(emotions)))  # Max 2 emotions per script
-
-    for i, sentence in enumerate(sentences):
-        sentence = sentence.strip()
-        if not sentence:
-            result_parts.append("")
-            continue
-
-        # Try to inject emotion at end of this sentence (before period)
-        if injected < max_injections and emotion_idx < len(emotions):
-            # Find a good place: after comma if exists, else at end
-            if "," in sentence:
-                parts = sentence.rsplit(",", 1)
-                sentence = f'{parts[0]}<{emotions[emotion_idx]}>, {parts[1]}'
-            else:
-                # Add before the final phrase if possible
-                words = sentence.split()
-                if len(words) > 3:
-                    sentence = f"{" ".join(words[:-1])}<{emotions[emotion_idx]}> {words[-1]}"
-
-            injected += 1
-            emotion_idx = (emotion_idx + 1) % len(emotions)
-
-        result_parts.append(sentence)
-
-    return ". ".join(p for p in result_parts if p) + ("." if script.rstrip().endswith(".") else "")
+            log.warning("Failed to unload TTS model: %s", exc)
 
 
 def synthesize_orpheus(
@@ -122,53 +66,50 @@ def synthesize_orpheus(
     emotions: list[str] | None = None,
 ) -> int:
     """
-    Synthesize speech with Orpheus TTS. Returns duration_ms.
+    Synthesize speech with Kokoro TTS. Returns duration_ms.
 
     Args:
         text: Script to synthesize
-        voice: One of: tara, leah, jess, leo, dan, mia, zac, zoe
+        voice: Voice ID (for Kokoro; orpheus voices mapped to kokoro equivalents)
         out_path: Output WAV file path
-        emotions: Optional list of emotion tags to inject
+        emotions: Ignored (Kokoro doesn't support emotion injection)
 
-    Emotions (pick 0-2): laugh, chuckle, sigh, cough, sniff, groan, yawn, gasp
+    Kokoro voices: af, af_bella, af_nicole, af_sarah, af_sky, am_adam, am_michael, bm_lewis, bm_george
     """
     text = (text or "").strip()
     if not text:
-        raise ValueError("empty text for Orpheus TTS")
+        raise ValueError("empty text for Kokoro TTS")
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Validate voice
-    valid_voices = {"tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"}
-    if voice not in valid_voices:
-        log.warning(
-            "  [orpheus] unknown voice '%s'; falling back to 'leo'",
-            voice,
-        )
-        voice = "leo"
-
-    # Inject emotions naturally
-    if emotions:
-        text = inject_emotion_tags(text, emotions)
+    # Map Orpheus voices to Kokoro equivalents
+    voice_map = {
+        "tara": "af_bella",
+        "leah": "af_nicole",
+        "jess": "af_sky",
+        "leo": "am_michael",
+        "dan": "am_adam",
+        "mia": "af",
+        "zac": "am_lewis",
+        "zoe": "af_sarah",
+    }
+    kokoro_voice = voice_map.get(voice, "am_michael")
 
     try:
-        model = get_orpheus_model()
+        pipeline = get_orpheus_model()
 
-        # Orpheus format: "voice_name: text"
-        prompt = f"{voice}: {text}"
-        log.info("  [orpheus] Synthesizing (%s, %d chars)…", voice, len(text))
+        log.info("  [kokoro] Synthesizing (%s, %d chars)…", kokoro_voice, len(text))
 
-        # Generate speech as audio chunks
+        # Kokoro KPipeline yields results with audio chunks
         audio_chunks = []
-        for audio_chunk in model.generate_speech(prompt=prompt):
-            # Convert to numpy if needed
-            if hasattr(audio_chunk, "numpy"):
-                audio_chunk = audio_chunk.numpy()
-            audio_chunks.append(np.asarray(audio_chunk, dtype=np.float32))
+        for result in pipeline(text, voice=kokoro_voice, speed=1.0):
+            # KPipeline.Result has .audio attribute with numpy array
+            if hasattr(result, 'audio') and result.audio is not None:
+                audio_chunks.append(np.asarray(result.audio, dtype=np.float32))
 
         if not audio_chunks:
-            raise RuntimeError("Orpheus produced no audio")
+            raise RuntimeError("Kokoro produced no audio")
 
         # Concatenate chunks
         audio_out = np.concatenate(audio_chunks)
@@ -178,15 +119,15 @@ def synthesize_orpheus(
         if peak > 1.0:
             audio_out = audio_out / peak
 
-        # Write to file
+        # Write to file (Kokoro uses 24kHz)
         sf.write(str(out_path), audio_out, SAMPLE_RATE)
         duration_ms = int(round(len(audio_out) / SAMPLE_RATE * 1000))
-        log.info("  [orpheus] ✓ %d ms written to %s", duration_ms, out_path.name)
+        log.info("  [kokoro] ✓ %d ms written to %s", duration_ms, out_path.name)
         return duration_ms
 
     except Exception as exc:
-        log.error("  [orpheus] synthesis failed: %s", exc)
-        raise RuntimeError(f"Orpheus TTS failed: {exc}") from exc
+        log.error("  [kokoro] synthesis failed: %s", exc)
+        raise RuntimeError(f"Kokoro TTS failed: {exc}") from exc
 
 
 def write_silence_wav(out_path: Path, duration_sec: float = 1.0) -> int:

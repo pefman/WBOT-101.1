@@ -91,12 +91,16 @@ async def ensure_vllm_running(
                 "vllm.entrypoints.openai.api_server",
                 f"--model={model}",
                 "--tensor-parallel-size=1",
-                "--gpu-memory-utilization=0.4",  # Further reduced from 0.6 to avoid OOM in high-contention environment
+                "--gpu-memory-utilization=0.35",  # Further reduced from 0.4 for GPU-constrained environments
                 "--port=8000",
             ],
             env={**os.environ, "HF_HOME": hf_home},
             start_new_session=True,  # Detach from parent so it survives shell exit
         )
+        # Store PID for cleanup by start.sh
+        pid_file = Path.cwd() / "data" / "vllm.pid"
+        pid_file.parent.mkdir(parents=True, exist_ok=True)
+        pid_file.write_text(str(proc.pid))
         log.info("  [vllm] process started (PID %s), waiting for readiness…", proc.pid)
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"Failed to start vLLM process: {exc}") from exc

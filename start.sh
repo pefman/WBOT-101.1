@@ -22,6 +22,25 @@ ACE_PID_FILE="$ROOT/data/acestep-api.pid"
 cleanup() {
   local code=$?
   
+  # Stop vLLM if it was spawned by the app (check pidfile)
+  if [[ -f "$ROOT/data/vllm.pid" ]]; then
+    local vllm_pid
+    vllm_pid=$(<"$ROOT/data/vllm.pid")
+    if [[ -n "$vllm_pid" ]] && kill -0 "$vllm_pid" 2>/dev/null; then
+      info "Stopping vLLM spawned by app (PID $vllm_pid)…"
+      kill -TERM "$vllm_pid" 2>/dev/null || true
+      local count=0
+      while kill -0 "$vllm_pid" 2>/dev/null && [[ $count -lt 3 ]]; do
+        sleep 1
+        ((count++))
+      done
+      if kill -0 "$vllm_pid" 2>/dev/null; then
+        kill -9 "$vllm_pid" 2>/dev/null || true
+      fi
+    fi
+    rm -f "$ROOT/data/vllm.pid"
+  fi
+  
   # Stop the radio app if it's still running
   if [[ -n "${APP_PID}" ]]; then
     if kill -0 "$APP_PID" 2>/dev/null; then
@@ -111,6 +130,19 @@ export KOKORO_DEVICE="${KOKORO_DEVICE:-cpu}"
 export ORPHEUS_DEVICE="${ORPHEUS_DEVICE:-cpu}"
 export PYTHONPATH="${ROOT}/src${PYTHONPATH:+:$PYTHONPATH}"
 export HF_HOME="${ROOT}/models/huggingface"
+
+# Check for HF_TOKEN (needed for Orpheus TTS gated repo access)
+if [[ -z "${HF_TOKEN:-}" ]]; then
+  warn "HF_TOKEN not set. Orpheus TTS requires Hugging Face authentication."
+  echo
+  read -p "Enter your Hugging Face token (or press Enter to skip): " hf_token_input
+  if [[ -n "$hf_token_input" ]]; then
+    export HF_TOKEN="$hf_token_input"
+    info "HF_TOKEN set."
+  else
+    warn "Skipping HF_TOKEN. Orpheus TTS will fail if accessed."
+  fi
+fi
 
 # Check if critical packages are missing
 MISSING=0

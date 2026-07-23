@@ -1147,16 +1147,20 @@ async function refreshHealth() {
     );
     const llm = h.components?.vllm || {};
     const pull = h.llm_pull || {};
-    let llmHint = " · host LLM ERROR (Play blocked)";
+    let llmHint = "";
     if (llm.ok) {
       llmHint = llm.model ? ` · vLLM ${llm.model}` : " · vLLM ok";
     } else if (pull.status === "pulling") {
       llmHint = ` · downloading ${pull.model || "model"} ${pull.percent != null ? pull.percent + "%" : ""}`;
+    } else if (h.degraded) {
+      llmHint = " · host LLM (will start on-demand)";
+    } else {
+      llmHint = " · host LLM ERROR (Play blocked)";
     }
     el.health.textContent =
       (h.ok ? "Ready" : "Not ready") + llmHint + " · " + parts.join(" · ");
-    el.health.classList.toggle("bad", !h.ok && pull.status !== "pulling");
-    el.play.disabled = !h.ok;
+    el.health.classList.toggle("bad", !h.ok && !h.degraded && pull.status !== "pulling");
+    el.play.disabled = !h.ok && !h.degraded;
     if (h.llm_pull) renderLlmPull(h.llm_pull);
   } catch (e) {
     el.health.textContent = "Health check failed";
@@ -1300,6 +1304,12 @@ document.addEventListener("keydown", (e) => {
   await ensureLlm();
   await refreshHealth();
   await refresh();
+  // Auto-play on startup with radio genre
+  setTimeout(() => {
+    if (el.play && !el.play.disabled) {
+      el.play.click();
+    }
+  }, 1000);
   // Keep UI snappy but don't hammer the API (access logs / LLM status)
   setInterval(refresh, 2000);
   setInterval(refreshHealth, 8000);
