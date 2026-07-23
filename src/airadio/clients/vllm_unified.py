@@ -138,27 +138,34 @@ async def vllm_generate_text(
 
 async def unload_vllm_model(base_url: str, *, timeout: float = 10.0) -> None:
     """
-    Unload all models from vLLM VRAM to free GPU memory before ACE-Step music.
-
-    vLLM doesn't have a direct unload API; instead, we call /v1/models
-    to verify what's loaded, then optionally trigger a model switch or
-    rely on memory management. For now, this is a no-op but future-proofs
-    the API for explicit unload support.
+    Kill vLLM process to free GPU VRAM before ACE-Step music generation.
+    
+    Since vLLM has no API to unload models, we terminate the process entirely.
+    The model will be reloaded from cache on next generation (fast).
     """
     if not llm_unload_enabled():
         return
 
-    base = base_url.rstrip("/")
+    import subprocess
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            # Verify server is still responsive
-            r = await client.get(f"{base}/v1/models")
-            if r.status_code != 200:
-                log.warning("vLLM server unresponsive during unload check")
-                return
-        log.info("  [vllm] unload request sent (models stay resident until next generation or explicit stop)")
+        # Find vLLM process by port and kill it
+        result = subprocess.run(
+            ["lsof", "-ti:8000"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        pids = result.stdout.strip().split("\n")
+        for pid_str in pids:
+            if pid_str and pid_str.isdigit():
+                pid = int(pid_str)
+                try:
+                    subprocess.run(["kill", str(pid)], timeout=2)
+                    log.info(f"  [vllm] terminated process {pid} to free GPU VRAM")
+                except Exception as e:  # noqa: BLE001
+                    log.warning(f"  [vllm] failed to kill {pid}: {e}")
     except Exception as exc:  # noqa: BLE001
-        log.warning("vLLM unload verification failed: %s", exc)
+        log.warning(f"  [vllm] unload check failed: {exc} (GPU VRAM may not be freed)")
 
 
 async def check_vllm(base_url: str, text_model: str, *, timeout: float = 5.0) -> dict:
