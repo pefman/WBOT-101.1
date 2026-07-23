@@ -19,6 +19,8 @@ from typing import Any
 
 import httpx
 
+from airadio.clients.acestep import ensure_acestep_running
+
 log = logging.getLogger(__name__)
 
 # Resolved model when station says "auto"
@@ -236,6 +238,27 @@ async def vllm_generate_text(
     except Exception as exc:
         global _resolved_model
         _resolved_model = None
+        
+        # Auto-recovery: if connection failed, try to respawn vLLM and retry once
+        if "All connection attempts failed" in str(exc) or "Connection refused" in str(exc):
+            log.warning("  [vllm] connection failed — attempting to respawn…")
+            try:
+                await ensure_vllm_running(base_url, model)
+                log.info("  [vllm] respawned; retrying text generation…")
+                # Retry once after respawn
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    resp = await client.post(f"{base}/v1/chat/completions", json=payload)
+                    resp.raise_for_status()
+                    data = resp.json()
+                choices = data.get("choices") or []
+                if choices:
+                    message = choices[0].get("message") or {}
+                    content = message.get("content")
+                    if content and str(content).strip():
+                        return str(content).strip()
+            except Exception as retry_exc:  # noqa: BLE001
+                log.error("  [vllm] respawn + retry failed: %s", retry_exc)
+        
         raise RuntimeError(f"vLLM text generation failed: {exc}") from exc
 
 
@@ -269,6 +292,9 @@ async def unload_vllm_model(base_url: str, *, timeout: float = 10.0) -> None:
                     log.warning(f"  [vllm] failed to kill {pid}: {e}")
     except Exception as exc:  # noqa: BLE001
         log.warning(f"  [vllm] unload check failed: {exc} (GPU VRAM may not be freed)")
+    
+    # Restart ACE-Step after vLLM unload (if not already running)
+    await ensure_acestep_running()
 
 
 async def check_vllm(base_url: str, text_model: str, *, timeout: float = 5.0) -> dict:

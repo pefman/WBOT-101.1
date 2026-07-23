@@ -55,6 +55,54 @@ async def _api_reachable(base: str) -> bool:
         return False
 
 
+async def ensure_acestep_running() -> bool:
+    """
+    Ensure ACE-Step API is running on 8001.
+    If not, attempt to restart it (non-fatal if it fails).
+    Returns True if running, False otherwise.
+    """
+    base = _api_base()
+    
+    # Check if already running
+    if await _api_reachable(base):
+        return True
+    
+    log.warning("  [acestep] API not responding — attempting to restart…")
+    
+    # Try to start ACE-Step using the start script
+    try:
+        root = Path(__file__).resolve().parents[3]
+        start_script = root / "scripts" / "start_acestep_api.sh"
+        
+        if not start_script.exists():
+            log.warning("  [acestep] start script not found at %s", start_script)
+            return False
+        
+        # Run start script in background
+        proc = subprocess.Popen(
+            ["bash", str(start_script)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        
+        log.info("  [acestep] start script spawned (PID %s), waiting for readiness…", proc.pid)
+        
+        # Wait for API to become reachable (up to 30s)
+        for attempt in range(60):
+            await asyncio.sleep(0.5)
+            if await _api_reachable(base):
+                log.info("  [acestep] API is now ready on %s", base)
+                return True
+        
+        log.warning("  [acestep] API did not respond within 30s (check data/acestep-api.log)")
+        return False
+        
+    except Exception as exc:  # noqa: BLE001
+        log.warning("  [acestep] restart failed: %s", exc)
+        return False
+
+
 def _thinking_default() -> bool:
     # Default OFF: ACE "thinking" loads a second GPU model (5Hz LM) and often OOMs
     # when DiT already holds VRAM. Set ACESTEP_THINKING=1 if you have free VRAM.
