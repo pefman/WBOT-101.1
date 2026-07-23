@@ -248,7 +248,7 @@ def print_report(checks: list[Check]) -> bool:
     print("  python3 -m venv .venv && source .venv/bin/activate")
     print("  pip install -e '.[dev]'")
     print("  bash scripts/install_acestep.sh")
-    print("  # start LLM (Ollama etc.), then:")
+    print("  # start LLM (vLLM), then:")
     print("  bash scripts/start_acestep_api.sh")
     print("  ./start.sh")
     return False

@@ -88,7 +88,7 @@ def _format_task_failure(item: dict) -> str:
     if "out of memory" in text.lower() or "oom" in text.lower():
         text += (
             " — GPU full. DiT-only mode (thinking=false) is safer; free VRAM "
-            "(stop other GPU apps / keep Ollama on CPU) or set ACESTEP_THINKING=0."
+            "(stop other GPU apps / keep vLLM on CPU) or set ACESTEP_THINKING=0."
         )
     return text[:900]
 

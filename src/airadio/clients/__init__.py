@@ -1,1 +1,1 @@
-"""External model clients (Ollama, Kokoro, ACE-Step)."""
+"""External model clients (vLLM, Orpheus TTS, ACE-Step)."""
