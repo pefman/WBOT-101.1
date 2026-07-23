@@ -161,35 +161,44 @@ fi
 info "Checking vLLM…"
 if ! curl -sf "http://127.0.0.1:8000/v1/models" >/dev/null 2>&1; then
   info "vLLM not running — starting it in background…"
-  info "(Model download on first use: ~3.5GB, may take 2-5 min)"
-  # Start vLLM in background with a reasonable timeout; suppress verbose logs
-  VLLM_LOG_LEVEL=ERROR HF_HUB_VERBOSITY=critical \
-  timeout 600 python -m vllm.entrypoints.openai.api_server \
+  info "(Model download on first use: ~3.5GB, may take 5-10 min)"
+  info "Logs will show HuggingFace download progress:"
+  info "---"
+  
+  # Start vLLM in background WITH output visible (not suppressed)
+  # This shows download progress and other important messages
+  python -m vllm.entrypoints.openai.api_server \
     --model Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4 \
     --tensor-parallel-size 1 \
     --gpu-memory-utilization 0.8 \
     --max-model-len 2048 \
-    --port 8000 \
-    >/dev/null 2>&1 &
+    --port 8000 &
   VLLM_PID=$!
   
-  # Wait for vLLM to be ready (with timeout)
+  # Wait for vLLM to be ready (no hard timeout - let it download fully)
   start_time=$(date +%s)
-  max_wait=300  # 5 minutes
-  ready=0
-  while [[ $(( $(date +%s) - start_time )) -lt $max_wait ]]; do
+  check_interval=5
+  last_status=0
+  while true; do
+    current_time=$(date +%s)
+    elapsed=$(( current_time - start_time ))
+    
+    # Check every 5 seconds
     if curl -sf "http://127.0.0.1:8000/v1/models" >/dev/null 2>&1; then
-      ready=1
+      info "---"
+      info "✓ vLLM ready on :8000"
       break
     fi
-    sleep 2
+    
+    # Print status every 30 seconds
+    if [[ $(( elapsed - last_status )) -ge 30 ]]; then
+      elapsed_min=$(( elapsed / 60 ))
+      info "  Still waiting… (${elapsed_min}m elapsed)"
+      last_status=$elapsed
+    fi
+    
+    sleep 5
   done
-  
-  if [[ $ready -eq 0 ]]; then
-    fail "vLLM did not start within ${max_wait}s. Check GPU driver or VRAM."
-    exit 1
-  fi
-  info "vLLM started and ready on :8000"
 else
   info "vLLM already running on :8000"
 fi
