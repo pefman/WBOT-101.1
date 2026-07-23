@@ -134,9 +134,9 @@ if [[ $MISSING -eq 1 ]]; then
   info "Dependencies installed successfully."
 fi
 
-# --- 2. Preflight (packages, ffmpeg, config, …) without ACE/LLM yet ----------
+# --- 2. Preflight (packages, ffmpeg, config, …) without ACE/LLM/Orpheus yet ----
 info "Checking project install…"
-if ! python -m airadio.preflight --skip-llm --skip-ace; then
+if ! python -m airadio.preflight --skip-llm --skip-ace --skip-orpheus; then
   fail "Project install incomplete. Fix the FAIL items above."
   exit 1
 fi
